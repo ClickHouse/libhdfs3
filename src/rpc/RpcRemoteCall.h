@@ -100,7 +100,7 @@ public:
     }
 
 public:
-    static std::vector<char> GetPingRequest(const std::string & clientid);
+    static WriteBuffer *  GetPingRequest(const std::string & clientid);
 
 private:
     bool complete;

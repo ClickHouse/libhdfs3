@@ -88,7 +88,7 @@ std::string WritableUtils::ReadText() {
     std::string retval;
     length = ReadInt32();
     retval.resize(length);
-    ReadRaw(retval.data(), length);
+    ReadRaw(const_cast<char*>(retval.data()), length);
     return retval;
 }
 

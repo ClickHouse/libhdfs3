@@ -37,6 +37,7 @@
 #include <unistd.h>
 #include <string>
 #include <sstream>
+#include <stdio.h>
 
 #include "Function.h"
 #include "StackPrinter.h"
