@@ -47,6 +47,23 @@ DatanodeImpl::DatanodeImpl(const std::string & host, uint32_t port,
     server.setTokenService("");
 }
 
+void DatanodeImpl::sendPing() {
+    RpcChannel & channel = client.getChannel(auth, protocol, server, conf);
+    try {
+        channel.Ping();
+    } catch (const HdfsFailoverException & e) {
+        //Datanode do not have HA configuration.
+        channel.close(true);
+        Hdfs::rethrow_if_nested(e);
+        assert(false && "HdfsFailoverException should be always a wrapper of other exception");
+    } catch (...) {
+        channel.close(true);
+        throw;
+    }
+
+    channel.close(false);
+}
+
 void DatanodeImpl::invoke(const RpcCall & call, bool reuse) {
     RpcChannel & channel = client.getChannel(auth, protocol, server, conf);
 

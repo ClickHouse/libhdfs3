@@ -34,6 +34,7 @@
 #include "FileSystemStats.h"
 #include "Permission.h"
 #include "XmlConfig.h"
+#include "server/EncryptionKey.h"
 
 #include <vector>
 
@@ -90,6 +91,8 @@ public:
      * disconnect from hdfs
      */
     void disconnect();
+
+    Internal::EncryptionKey getEncryptionKeys();
 
     /**
      * To get default number of replication.

@@ -46,6 +46,12 @@ enum AuthProtocol {
     NONE = 0, SASL = -33
 };
 
+enum Protection {
+    AUTH = 1, // Authentication
+    INT = 2, // Integrity
+    CONF = 4 // Privacy
+};
+
 class RpcAuth {
 public:
     RpcAuth() :

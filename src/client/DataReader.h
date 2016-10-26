@@ -25,22 +25,42 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "RpcConfig.h"
+#ifndef _HDFS_LIBHDFS3_SERVER_DATAREADER_H_
+#define _HDFS_LIBHDFS3_SERVER_DATAREADER_H_
 
+#include <string>
 #include <vector>
-
 namespace Hdfs {
 namespace Internal {
 
-size_t RpcConfig::hash_value() const {
-    size_t values[] = { Int32Hasher(maxIdleTime), Int32Hasher(pingTimeout),
-                        Int32Hasher(connectTimeout), Int32Hasher(readTimeout), Int32Hasher(
-                            writeTimeout), Int32Hasher(maxRetryOnConnect), Int32Hasher(
-                            lingerTimeout), Int32Hasher(rpcTimeout), BoolHasher(tcpNoDelay),
-                            Int32Hasher(protection)
-                      };
-    return CombineHasher(values, sizeof(values) / sizeof(values[0]));
-}
+/**
+ * Helps read data responses from the server
+ */
+class DataReader {
+public:
+    DataReader(DataTransferProtocol *sender,
+            shared_ptr<BufferedSocketReader> reader, int readTimeout);
+    std::vector<char>& readResponse(const char* text, int &outsize);
+    std::vector<char>& readPacketHeader(const char* text, int size, int &outsize);
+    std::string& getRest() {
+        return rest;
+    }
+
+    void setRest(const char* data, int size);
+    void reduceRest(int size);
+    void getMissing(int size);
+
+private:
+    std::string raw;
+    std::string decrypted;
+    std::string rest;
+    std::vector<char> buf;
+    DataTransferProtocol *sender;
+    shared_ptr<BufferedSocketReader> reader;
+    int readTimeout;
+};
 
 }
 }
+
+#endif /* _HDFS_LIBHDFS3_SERVER_DATAREADER_H_ */
