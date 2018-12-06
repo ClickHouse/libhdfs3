@@ -167,3 +167,8 @@ TRY_COMPILE(HAVE_STD_ATOMIC
     ${CMAKE_BINARY_DIR}/test.cpp 
     CMAKE_FLAGS "-DCMAKE_CXX_LINK_EXECUTABLE='echo not linking now...'"
     OUTPUT_VARIABLE OUTPUT)
+
+if (NOT DEFINED WITH_KERBEROS)
+    SET(WITH_KERBEROS false)
+    MESSAGE(STATUS "libhdfs3 will be build without kerberos support")
+endif()
