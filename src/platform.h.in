@@ -20,6 +20,7 @@
 #cmakedefine HAVE_STD_CHRONO
 #cmakedefine HAVE_BOOST_ATOMIC
 #cmakedefine HAVE_STD_ATOMIC
+#cmakedefine WITH_KERBEROS
 
 // defined by gcc
 #if defined(__ELF__) && defined(OS_LINUX)
