@@ -171,4 +171,4 @@ TRY_COMPILE(HAVE_STD_ATOMIC
 if (NOT DEFINED WITH_KERBEROS)
     SET(WITH_KERBEROS false)
     MESSAGE(STATUS "libhdfs3 will be build without kerberos support")
-endif
+endif()
