@@ -24,7 +24,7 @@
 
 // This file contains protocol buffers that are used to transfer data
 // to and from the datanode, as well as between datanodes.
-
+syntax = "proto2";
 option java_package = "org.apache.hadoop.hdfs.protocol.proto";
 option java_outer_classname = "DataTransferProtos";
 option java_generate_equals_and_hash = true;
@@ -73,7 +73,7 @@ message ChecksumProto {
   required ChecksumTypeProto type = 1;
   required uint32 bytesPerChecksum = 2;
 }
-  
+
 message OpWriteBlockProto {
   required ClientOperationHeaderProto header = 1;
   repeated DatanodeInfoProto targets = 2;
@@ -109,7 +109,7 @@ message OpWriteBlockProto {
   required ChecksumProto requestedChecksum = 9;
   optional CachingStrategyProto cachingStrategy = 10;
 }
-  
+
 message OpTransferBlockProto {
   required ClientOperationHeaderProto header = 1;
   repeated DatanodeInfoProto targets = 2;
@@ -125,11 +125,11 @@ message OpCopyBlockProto {
   required BaseHeaderProto header = 1;
 }
 
-message OpBlockChecksumProto { 
+message OpBlockChecksumProto {
   required BaseHeaderProto header = 1;
 }
 
-message OpRequestShortCircuitAccessProto { 
+message OpRequestShortCircuitAccessProto {
   required BaseHeaderProto header = 1;
 
   /** In order to get short-circuit access to block data, clients must set this

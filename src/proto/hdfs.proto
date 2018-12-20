@@ -24,8 +24,7 @@
 
 // This file contains protocol buffers that are used throughout HDFS -- i.e.
 // by the client, server, and data transfer protocols.
-
-
+syntax = "proto2";
 option java_package = "org.apache.hadoop.hdfs.protocol.proto";
 option java_outer_classname = "HdfsProtos";
 option java_generate_equals_and_hash = true;
@@ -40,7 +39,7 @@ message ExtendedBlockProto {
   required string poolId = 1;   // Block pool id - gloablly unique across clusters
   required uint64 blockId = 2;  // the local id within a pool
   required uint64 generationStamp = 3;
-  optional uint64 numBytes = 4 [default = 0];  // len does not belong in ebid 
+  optional uint64 numBytes = 4 [default = 0];  // len does not belong in ebid
                                                // here for historical reasons
 }
 
@@ -128,7 +127,7 @@ enum StorageTypeProto {
 }
 
 /**
- * A list of storage IDs. 
+ * A list of storage IDs.
  */
 message StorageUuidsProto {
   repeated string storageUuids = 1;
@@ -136,13 +135,13 @@ message StorageUuidsProto {
 
 /**
  * A LocatedBlock gives information about a block and its location.
- */ 
+ */
 message LocatedBlockProto {
   required ExtendedBlockProto b  = 1;
   required uint64 offset = 2;           // offset of first byte of block in the file
   repeated DatanodeInfoProto locs = 3;  // Locations ordered by proximity to client ip
   required bool corrupt = 4;            // true if all replicas of a block are corrupt, else false
-                                        // If block has few corrupt replicas, they are filtered and 
+                                        // If block has few corrupt replicas, they are filtered and
                                         // their locations are not part of this object
 
   required TokenProto blockToken = 5;
@@ -193,7 +192,7 @@ message HdfsFileStatusProto {
   required uint64 access_time = 8;
 
   // Optional fields for symlink
-  optional bytes symlink = 9;             // if symlink, target encoded java UTF8 
+  optional bytes symlink = 9;             // if symlink, target encoded java UTF8
 
   // Optional fields for file
   optional uint32 block_replication = 10 [default = 0]; // only 16bits used
@@ -203,7 +202,7 @@ message HdfsFileStatusProto {
   // Optional field for fileId
   optional uint64 fileId = 13 [default = 0]; // default as an invalid id
   optional int32 childrenNum = 14 [default = -1];
-} 
+}
 
 /**
  * Checksum algorithms/types used in HDFS
@@ -240,9 +239,9 @@ message DirectoryListingProto {
 }
 
 /**
- * Status of a snapshottable directory: besides the normal information for 
+ * Status of a snapshottable directory: besides the normal information for
  * a directory status, also include snapshot quota, number of snapshots, and
- * the full path of the parent directory. 
+ * the full path of the parent directory.
  */
 message SnapshottableDirectoryStatusProto {
   required HdfsFileStatusProto dirStatus = 1;
@@ -335,7 +334,7 @@ message NamenodeCommandProto {
  */
 message CheckpointCommandProto {
   // Unique signature to identify checkpoint transation
-  required CheckpointSignatureProto signature = 1; 
+  required CheckpointSignatureProto signature = 1;
 
   // If true, return transfer image to primary upon the completion of checkpoint
   required bool needToReturnImage = 2;

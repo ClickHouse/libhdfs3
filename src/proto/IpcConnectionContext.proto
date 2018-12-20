@@ -21,7 +21,7 @@
  * Please see http://wiki.apache.org/hadoop/Compatibility
  * for what changes are allowed for a *stable* .proto interface.
  */
-
+syntax = "proto2";
 option java_package = "org.apache.hadoop.ipc.protobuf";
 option java_outer_classname = "IpcConnectionContextProtos";
 option java_generate_equals_and_hash = true;
@@ -42,7 +42,7 @@ message UserInformationProto {
  * It establishes the context for ALL Rpc calls within the connection.
  */
 message IpcConnectionContextProto {
-  // UserInfo beyond what is determined as part of security handshake 
+  // UserInfo beyond what is determined as part of security handshake
   // at connection time (kerberos, tokens etc).
   optional UserInformationProto userInfo = 2;
 

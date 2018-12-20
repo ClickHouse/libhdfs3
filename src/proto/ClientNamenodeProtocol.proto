@@ -21,6 +21,7 @@
  * Please see http://wiki.apache.org/hadoop/Compatibility
  * for what changes are allowed for a *stable* .proto interface.
  */
+syntax = "proto2";
 
 option java_package = "org.apache.hadoop.hdfs.protocol.proto";
 option java_outer_classname = "ClientNamenodeProtocolProtos";
@@ -35,9 +36,9 @@ import "hdfs.proto";
 import "Security.proto";
 
 /**
- * The ClientNamenodeProtocol Service defines the interface between a client 
+ * The ClientNamenodeProtocol Service defines the interface between a client
  * (as runnign inside a MR Task) and the Namenode.
- * See org.apache.hadoop.hdfs.protocol.ClientProtocol for the javadoc 
+ * See org.apache.hadoop.hdfs.protocol.ClientProtocol for the javadoc
  * for each of the methods.
  * The exceptions declared in the above class also apply to this protocol.
  * Exceptions are unwrapped and thrown by the  PB libraries.
@@ -743,7 +744,7 @@ service ClientNamenodeProtocol {
   rpc allowSnapshot(AllowSnapshotRequestProto)
       returns(AllowSnapshotResponseProto);
   rpc disallowSnapshot(DisallowSnapshotRequestProto)
-      returns(DisallowSnapshotResponseProto);   
+      returns(DisallowSnapshotResponseProto);
   rpc getSnapshottableDirListing(GetSnapshottableDirListingRequestProto)
       returns(GetSnapshottableDirListingResponseProto);
   rpc deleteSnapshot(DeleteSnapshotRequestProto)
