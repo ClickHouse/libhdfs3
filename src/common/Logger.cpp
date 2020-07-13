@@ -93,7 +93,7 @@ void Logger::printf(LogSeverity s, const char * fmt, ...) {
         localtime_r(&tval.tv_sec, &tm_time);
         //determine buffer size
         va_start(ap, fmt);
-        int size = vsnprintf(&buffer[0], buffer.size(), fmt, ap);
+        int size = vsnprintf(nullptr, 0, fmt, ap);
         va_end(ap);
         //100 is enough for prefix
         buffer.resize(size + 100);
