@@ -555,7 +555,7 @@ void RpcChannelImpl::checkOneResponse() {
             readOneResponse(true);
             return;
         } else {
-            if (ping > 0 && ToMilliSeconds(lastActivity, steady_clock::now()) >= ping) {
+            if (ping > 0 && ToMilliSeconds(lastActivity.load(std::memory_order_relaxed), steady_clock::now()) >= ping) {
                 lock_guard<mutex> lock(writeMut);
                 sendPing();
             }
@@ -599,13 +599,13 @@ bool RpcChannelImpl::checkIdle() {
 
         try {
             //close the connection if idle timeout
-            if (ToMilliSeconds(lastIdle, steady_clock::now()) >= idle) {
+            if (ToMilliSeconds(lastIdle.load(std::memory_order_relaxed), steady_clock::now()) >= idle) {
                 sock->close();
                 return true;
             }
 
             //send ping
-            if (ping > 0 && ToMilliSeconds(lastActivity, steady_clock::now()) >= ping) {
+            if (ping > 0 && ToMilliSeconds(lastActivity.load(std::memory_order_relaxed), steady_clock::now()) >= ping) {
                 sendPing();
             }
         } catch (...) {

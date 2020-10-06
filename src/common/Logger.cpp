@@ -73,7 +73,7 @@ void Logger::setOutputFd(int f) {
 }
 
 void Logger::setLogSeverity(LogSeverity l) {
-    severity = l;
+    severity.store(l, std::memory_order_relaxed);
 }
 
 void Logger::printf(LogSeverity s, const char * fmt, ...) {

@@ -265,8 +265,8 @@ private:
     shared_ptr<BufferedSocketReader> in;
     shared_ptr<SaslClient> saslClient;
     shared_ptr<Socket> sock;
-    steady_clock::time_point lastActivity; // ping is a kind of activity, lastActivity will be updated after ping
-    steady_clock::time_point lastIdle; // ping cannot change idle state. If there is still pending calls, lastIdle is always "NOW".
+    std::atomic<steady_clock::time_point> lastActivity; // ping is a kind of activity, lastActivity will be updated after ping
+    std::atomic<steady_clock::time_point> lastIdle; // ping cannot change idle state. If there is still pending calls, lastIdle is always "NOW".
     unordered_map<int32_t, RpcRemoteCallPtr> pendingCalls;
 };
 

@@ -28,6 +28,8 @@
 #ifndef _HDFS_LIBHDFS3_COMMON_LOGGER_H_
 #define _HDFS_LIBHDFS3_COMMON_LOGGER_H_
 
+#include <atomic>
+
 #define DEFAULT_LOG_LEVEL INFO
 
 namespace Hdfs {
@@ -55,7 +57,7 @@ public:
 
 private:
     int fd;
-    LogSeverity severity;
+    std::atomic<LogSeverity> severity;
 };
 
 extern Logger RootLogger;
