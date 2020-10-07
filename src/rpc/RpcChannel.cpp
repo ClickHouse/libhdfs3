@@ -52,21 +52,19 @@ namespace Hdfs {
 namespace Internal {
 
 RpcChannelImpl::RpcChannelImpl(const RpcChannelKey & k, RpcClient & c) :
-    refs(0), available(false), key(k), client(c) {
+    refs(0), available(false), key(k), client(c), lastActivity(steady_clock::now()), lastIdle(lastActivity.load(std::memory_order_relaxed)) {
     sock = shared_ptr<Socket>(new TcpSocketImpl);
     sock->setLingerTimeout(k.getConf().getLingerTimeout());
     in = shared_ptr<BufferedSocketReader>(
              new BufferedSocketReaderImpl(
                  *static_cast<TcpSocketImpl *>(sock.get())));
-    lastActivity = lastIdle = steady_clock::now();
 }
 
 RpcChannelImpl::RpcChannelImpl(const RpcChannelKey & k, Socket * s,
                                BufferedSocketReader * in, RpcClient & c) :
-    refs(0), available(false), key(k), client(c) {
+    refs(0), available(false), key(k), client(c), lastActivity(steady_clock::now()), lastIdle(lastActivity.load(std::memory_order_relaxed)) {
     sock = shared_ptr<Socket>(s);
     this->in = shared_ptr<BufferedSocketReader>(in);
-    lastActivity = lastIdle = steady_clock::now();
 }
 
 RpcChannelImpl::~RpcChannelImpl() {
