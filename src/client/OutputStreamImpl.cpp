@@ -299,11 +299,11 @@ void OutputStreamImpl::appendInternal(const char * buf, int64_t size) {
             checksum->reset();
         } else {
             checksum->update(buf + size - todo, batch);
-            memcpy(&buffer[position], buf + size - todo, batch);
+            memcpy(buffer.data() + position, buf + size - todo, batch);
             position += batch;
 
             if (position == static_cast<int>(buffer.size())) {
-                appendChunkToPacket(&buffer[0], buffer.size());
+                appendChunkToPacket(buffer.data(), buffer.size());
                 bytesWritten += buffer.size();
                 checksum->reset();
                 position = 0;
@@ -402,7 +402,7 @@ void OutputStreamImpl::flushInternal(bool needSync) {
     }
 
     if (position > 0) {
-        appendChunkToPacket(&buffer[0], position);
+        appendChunkToPacket(buffer.data(), position);
     }
 
     /*
@@ -533,7 +533,7 @@ void OutputStreamImpl::close() {
         //pipeline may be broken
         if (!lastError) {
             if (lastFlushed != cursor && position > 0) {
-                appendChunkToPacket(&buffer[0], position);
+                appendChunkToPacket(buffer.data(), position);
             }
 
             if (lastFlushed != cursor && currentPacket) {

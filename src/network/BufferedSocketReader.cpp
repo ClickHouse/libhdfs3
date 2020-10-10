@@ -50,7 +50,7 @@ int32_t BufferedSocketReaderImpl::read(char * b, int32_t s) {
     int32_t done = s < size - cursor ? s : size - cursor;
 
     if (done > 0) {
-        memcpy(b, &buffer[cursor], done);
+        memcpy(b, buffer.data() + cursor, done);
         cursor += done;
         return done;
     } else {
@@ -63,7 +63,7 @@ int32_t BufferedSocketReaderImpl::read(char * b, int32_t s) {
 void BufferedSocketReaderImpl::readFully(char * b, int32_t s, int timeout) {
     assert(s > 0 && NULL != b);
     int32_t done = s < size - cursor ? s : size - cursor;
-    memcpy(b, &buffer[cursor], done);
+    memcpy(b, buffer.data() + cursor, done);
     cursor += done;
 
     if (done < s) {
@@ -101,12 +101,12 @@ int32_t BufferedSocketReaderImpl::readVarint32(int timeout, int32_t step) {
     int32_t value;
     bool rc = false;
     int deadline = timeout;
-    memmove(&buffer[0], &buffer[cursor], size - cursor);
+    memmove(&buffer[0], buffer.data() + cursor, size - cursor);
     size -= cursor;
     cursor = 0;
 
     while (!rc) {
-        CodedInputStream in(reinterpret_cast<uint8_t *>(&buffer[cursor]),
+        CodedInputStream in(reinterpret_cast<uint8_t *>(buffer.data() + cursor),
                             size - cursor);
         in.PushLimit(size - cursor);
         rc = in.ReadVarint32(reinterpret_cast<uint32_t *>(&value));
@@ -128,7 +128,7 @@ int32_t BufferedSocketReaderImpl::readVarint32(int timeout, int32_t step) {
         if (sock.poll(true, false, deadline)) {
             int32_t todo = buffer.size() - size;
             todo = todo < step ? todo : step;
-            size += sock.read(&buffer[size], todo);
+            size += sock.read(buffer.data() + size, todo);
         }
 
         steady_clock::time_point e = steady_clock::now();

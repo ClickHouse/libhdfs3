@@ -78,7 +78,7 @@ std::vector<char> RpcRemoteCall::GetPingRequest(const std::string & clientid) {
     buffer.writeVarint32(rpcHeaderLen);
     pingHeader.SerializeWithCachedSizesToArray(reinterpret_cast<unsigned char *>(buffer.alloc(pingHeader.ByteSize())));
     retval.resize(buffer.getDataSize(0));
-    memcpy(&retval[0], buffer.getBuffer(0), retval.size());
+    memcpy(retval.data(), buffer.getBuffer(0), retval.size());
     return retval;
 }
 

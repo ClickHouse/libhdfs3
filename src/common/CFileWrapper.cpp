@@ -79,8 +79,8 @@ void CFileWrapper::close() {
 
 const char * CFileWrapper::read(std::vector<char> & buffer, int32_t size) {
     buffer.resize(size);
-    copy(&buffer[0], size);
-    return &buffer[0];
+    copy(buffer.data(), size);
+    return buffer.data();
 }
 
 void CFileWrapper::copy(char * buffer, int32_t size) {

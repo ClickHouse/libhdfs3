@@ -66,7 +66,7 @@ LocalBlockReader::LocalBlockReader(const shared_ptr<ReadShortCircuitInfo>& info,
 
         std::vector<char> header;
         pMetaBuffer = metaFd->read(header, HEADER_SIZE);
-        int16_t version = ReadBigEndian16FromArray(&pMetaBuffer[0]);
+        int16_t version = ReadBigEndian16FromArray(pMetaBuffer);
 
         if (BMVERSION != version) {
             THROW(HdfsIOException,

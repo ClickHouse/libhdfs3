@@ -390,7 +390,7 @@ size_t Config::hash_value() const {
         values.push_back(StringHasher(s->second));
     }
 
-    return CombineHasher(&values[0], values.size());
+    return CombineHasher(values.data(), values.size());
 }
 
 }

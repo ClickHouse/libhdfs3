@@ -578,7 +578,7 @@ void RpcChannelImpl::sendPing() {
         LOG(INFO,
             "RPC channel to \"%s:%s\" got no response or idle for %d milliseconds, sending ping.",
             key.getServer().getHost().c_str(), key.getServer().getPort().c_str(), key.getConf().getPingTimeout());
-        sock->writeFully(&pingRequest[0], pingRequest.size(), key.getConf().getWriteTimeout());
+        sock->writeFully(pingRequest.data(), pingRequest.size(), key.getConf().getWriteTimeout());
         lastActivity = steady_clock::now();
     }
 }
@@ -770,9 +770,9 @@ void RpcChannelImpl::readOneResponse(bool writeLock) {
      */
     headerSize = in->readVarint32(readTimeout);
     buffer.resize(headerSize);
-    in->readFully(&buffer[0], headerSize, readTimeout);
+    in->readFully(buffer.data(), headerSize, readTimeout);
 
-    if (!curRespHeader.ParseFromArray(&buffer[0], headerSize)) {
+    if (!curRespHeader.ParseFromArray(buffer.data(), headerSize)) {
         THROW(HdfsRpcException,
               "RPC channel to \"%s:%s\" got protocol mismatch: RPC channel cannot parse response header.",
               key.getServer().getHost().c_str(), key.getServer().getPort().c_str())
@@ -798,12 +798,12 @@ void RpcChannelImpl::readOneResponse(bool writeLock) {
         buffer.resize(bodySize);
 
         if (bodySize > 0) {
-            in->readFully(&buffer[0], bodySize, readTimeout);
+            in->readFully(buffer.data(), bodySize, readTimeout);
         }
 
         Message * response = rc->getCall().getResponse();
 
-        if (!response->ParseFromArray(&buffer[0], bodySize)) {
+        if (!response->ParseFromArray(buffer.data(), bodySize)) {
             THROW(HdfsRpcException,
                   "RPC channel to \"%s:%s\" got protocol mismatch: rpc channel cannot parse response.",
                   key.getServer().getHost().c_str(), key.getServer().getPort().c_str())

@@ -97,14 +97,14 @@ void Logger::printf(LogSeverity s, const char * fmt, ...) {
         va_end(ap);
         //100 is enough for prefix
         buffer.resize(size + 100);
-        size = snprintf(&buffer[0], buffer.size(), "%04d-%02d-%02d %02d:%02d:%02d.%06ld, %s, %s ", tm_time.tm_year + 1900,
+        size = snprintf(buffer.data(), buffer.size(), "%04d-%02d-%02d %02d:%02d:%02d.%06ld, %s, %s ", tm_time.tm_year + 1900,
                         1 + tm_time.tm_mon, tm_time.tm_mday, tm_time.tm_hour,
                         tm_time.tm_min, tm_time.tm_sec, static_cast<long>(tval.tv_usec), ProcessId, SeverityName[s]);
         va_start(ap, fmt);
-        size += vsnprintf(&buffer[size], buffer.size() - size, fmt, ap);
+        size += vsnprintf(buffer.data() + size, buffer.size() - size, fmt, ap);
         va_end(ap);
         lock_guard<mutex> lock(LoggerMutex);
-        dprintf(fd, "%s\n", &buffer[0]);
+        dprintf(fd, "%s\n", buffer.data());
         return;
     } catch (const std::exception & e) {
         dprintf(fd, "%s:%d %s %s", __FILE__, __LINE__,

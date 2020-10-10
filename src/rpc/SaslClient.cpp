@@ -132,12 +132,12 @@ std::string SaslClient::evaluateChallenge(const std::string & challenge) {
     char * output = NULL;
     size_t outputSize;
     std::string retval;
-    rc = gsasl_step(session, &challenge[0], challenge.size(), &output,
+    rc = gsasl_step(session, challenge.data(), challenge.size(), &output,
                     &outputSize);
 
     if (rc == GSASL_NEEDS_MORE || rc == GSASL_OK) {
         retval.resize(outputSize);
-        memcpy(&retval[0], output, outputSize);
+        memcpy(retval.data(), output, outputSize);
 
         if (output) {
             free(output);

@@ -109,10 +109,10 @@ void RemoteBlockReader::checkResponse() {
     }
 
     respBuffer.resize(respSize);
-    in->readFully(&respBuffer[0], respSize, readTimeout);
+    in->readFully(respBuffer.data(), respSize, readTimeout);
     BlockOpResponseProto resp;
 
-    if (!resp.ParseFromArray(&respBuffer[0], respBuffer.size())) {
+    if (!resp.ParseFromArray(respBuffer.data(), respBuffer.size())) {
         THROW(HdfsIOException, "RemoteBlockReader cannot parse BlockOpResponseProto from Datanode response, "
               "Block: %s, from Datanode: %s", binfo.toString().c_str(), datanode.formatAddress().c_str());
     }
@@ -196,9 +196,9 @@ shared_ptr<PacketHeader> RemoteBlockReader::readPacketHeader() {
                   datanode.formatAddress().c_str(), binfo.toString().c_str());
         }
 
-        in->readFully(&buf[0], packetHeaderLen, readTimeout);
+        in->readFully(buf.data(), packetHeaderLen, readTimeout);
         retval = shared_ptr<PacketHeader>(new PacketHeader);
-        retval->readFields(&buf[0], packetHeaderLen);
+        retval->readFields(buf.data(), packetHeaderLen);
         return retval;
     } catch (const HdfsIOException & e) {
         NESTED_THROW(HdfsIOException, "RemoteBlockReader: failed to read block header for Block: %s from Datanode: %s.",
@@ -225,7 +225,7 @@ void RemoteBlockReader::readNextPacket() {
         size = checksumLen + dataSize;
         assert(size == lastHeader->getPacketLen() - static_cast<int>(sizeof(int32_t)));
         buffer.resize(size);
-        in->readFully(&buffer[0], size, readTimeout);
+        in->readFully(buffer.data(), size, readTimeout);
         lastSeqNo = lastHeader->getSeqno();
 
         if (lastHeader->getPacketLen() != static_cast<int>(sizeof(int32_t)) + dataSize + checksumLen) {
@@ -288,8 +288,8 @@ void RemoteBlockReader::sendStatus() {
 
 void RemoteBlockReader::verifyChecksum(int chunks) {
     int dataSize = lastHeader->getDataLen();
-    char * pchecksum = &buffer[0];
-    char * pdata = &buffer[0] + (chunks * checksumSize);
+    char * pchecksum = buffer.data();
+    char * pdata = buffer.data() + (chunks * checksumSize);
 
     for (int i = 0; i < chunks; ++i) {
         int size = chunkSize < dataSize ? chunkSize : dataSize;
@@ -326,7 +326,7 @@ int32_t RemoteBlockReader::read(char * buf, int32_t len) {
         }
 
         int32_t todo = len < size - position ? len : size - position;
-        memcpy(buf, &buffer[position], todo);
+        memcpy(buf, buffer.data() + position, todo);
         position += todo;
         cursor += todo;
         return todo;
