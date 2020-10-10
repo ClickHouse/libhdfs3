@@ -268,10 +268,10 @@ ReadShortCircuitInfoBuilder::receiveReadShortCircuitFDs(
   }
 
   respBuffer.resize(respSize);
-  in->readFully(&respBuffer[0], respSize, readTimeout);
+  in->readFully(respBuffer.data(), respSize, readTimeout);
   BlockOpResponseProto resp;
 
-  if (!resp.ParseFromArray(&respBuffer[0], respBuffer.size())) {
+  if (!resp.ParseFromArray(respBuffer.data(), respBuffer.size())) {
     THROW(HdfsIOException,
           "ReadShortCircuitInfoBuilder cannot parse BlockOpResponseProto "
           "from "
@@ -319,8 +319,8 @@ ReadShortCircuitInfoBuilder::receiveReadShortCircuitFDs(
 
   std::vector<int> tempFds(2, -1);
   respBuffer.resize(1);
-  domainSocket->receiveFileDescriptors(&tempFds[0], tempFds.size(),
-                                       &respBuffer[0], respBuffer.size());
+  domainSocket->receiveFileDescriptors(tempFds.data(), tempFds.size(),
+                                       respBuffer.data(), respBuffer.size());
 
   assert(tempFds[0] != -1 && "failed to receive data file descriptor");
   assert(tempFds[1] != -1 && "failed to receive metadata file descriptor");

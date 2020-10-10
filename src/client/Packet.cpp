@@ -76,7 +76,7 @@ void Packet::addChecksum(uint32_t checksum) {
               "Packet: failed to add checksum into packet, checksum is too large");
     }
 
-    WriteBigEndian32ToArray(checksum, &buffer[checksumPos]);
+    WriteBigEndian32ToArray(checksum, buffer.data() + checksumPos);
     checksumPos += checksumSize;
 }
 
@@ -86,7 +86,7 @@ void Packet::addData(const char * buf, int size) {
               "Packet: failed add data to packet, packet size is too small");
     }
 
-    memcpy(&buffer[dataPos], buf, size);
+    memcpy(buffer.data() + dataPos, buf, size);
     dataPos += size;
     assert(dataPos >= 0);
 }
@@ -134,7 +134,7 @@ const ConstPacketBuffer Packet::getBuffer() {
          * move the checksum to cover the gap.
          * This can happen for the last packet.
          */
-        memmove(&buffer[dataStart - checksumLen], &buffer[checksumStart],
+        memmove(&buffer[dataStart - checksumLen], buffer.data() + checksumStart,
                 checksumLen);
         headerStart = dataStart - checksumPos;
         checksumStart += dataStart - checksumPos;
@@ -146,9 +146,9 @@ const ConstPacketBuffer Packet::getBuffer() {
     PacketHeader header(pktLen + sizeof(int32_t)
                         /* why we add 4 bytes? Because the server will reduce 4 bytes. -_-*/
                         , offsetInBlock, seqno, lastPacketInBlock, dataLen);
-    header.writeInBuffer(&buffer[headerStart],
+    header.writeInBuffer(buffer.data() + headerStart,
                          PacketHeader::GetPkgHeaderSize());
-    return ConstPacketBuffer(&buffer[headerStart],
+    return ConstPacketBuffer(buffer.data() + headerStart,
                              PacketHeader::GetPkgHeaderSize() + pktLen);
 }
 

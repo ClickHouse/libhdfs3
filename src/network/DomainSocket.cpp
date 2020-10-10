@@ -119,7 +119,7 @@ int32_t DomainSocketImpl::receiveFileDescriptors(int fds[], size_t nfds,
   memset(&msg, 0, sizeof(msg));
   msg.msg_iov = &iov[0];
   msg.msg_iovlen = 1;
-  msg.msg_control = &aux[0];
+  msg.msg_control = aux.data();
   msg.msg_controllen = aux.size();
   cmsg = CMSG_FIRSTHDR(&msg);
   cmsg->cmsg_level = SOL_SOCKET;

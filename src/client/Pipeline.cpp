@@ -100,10 +100,10 @@ void PipelineImpl::transfer(const ExtendedBlock & blk, const DatanodeInfo & src,
     int size;
     size = in->readVarint32(readTimeout);
     std::vector<char> buf(size);
-    in->readFully(&buf[0], size, readTimeout);
+    in->readFully(buf.data(), size, readTimeout);
     BlockOpResponseProto resp;
 
-    if (!resp.ParseFromArray(&buf[0], size)) {
+    if (!resp.ParseFromArray(buf.data(), size)) {
         THROW(HdfsIOException, "cannot parse datanode response from %s fro block %s.",
               src.formatAddress().c_str(), lastBlock->toString().c_str());
     }
@@ -473,7 +473,7 @@ void PipelineImpl::checkBadLinkFormat(const std::string & n) {
     }
 
     do {
-        const char * host = &node[0], *port;
+        const char * host = node.data(), *port;
         size_t pos = node.find_last_of(":");
 
         if (pos == node.npos || pos + 1 == node.length()) {
@@ -481,7 +481,7 @@ void PipelineImpl::checkBadLinkFormat(const std::string & n) {
         }
 
         node[pos] = 0;
-        port = &node[pos + 1];
+        port = node.data() + pos + 1;
         struct addrinfo hints, *addrs;
         memset(&hints, 0, sizeof(hints));
         hints.ai_family = PF_UNSPEC;
@@ -533,10 +533,10 @@ void PipelineImpl::createBlockOutputStream(const Token & token, int64_t gs, bool
         int size;
         size = reader->readVarint32(readTimeout);
         std::vector<char> buf(size);
-        reader->readFully(&buf[0], size, readTimeout);
+        reader->readFully(buf.data(), size, readTimeout);
         BlockOpResponseProto resp;
 
-        if (!resp.ParseFromArray(&buf[0], size)) {
+        if (!resp.ParseFromArray(buf.data(), size)) {
             THROW(HdfsIOException, "cannot parse datanode response from %s for block %s.",
                   nodes[0].formatAddress().c_str(), lastBlock->toString().c_str());
         }
@@ -700,8 +700,8 @@ void PipelineImpl::processResponse() {
     int size = reader->readVarint32(readTimeout);
     ack.reset();
     buf.resize(size);
-    reader->readFully(&buf[0], size, readTimeout);
-    ack.readFrom(&buf[0], size);
+    reader->readFully(buf.data(), size, readTimeout);
+    ack.readFrom(buf.data(), size);
 
     if (ack.isInvalid()) {
         THROW(HdfsIOException,

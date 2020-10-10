@@ -54,7 +54,7 @@ UserInfo UserInfo::LocalUser() {
 
     std::vector<char> buffer(bufsize);
 
-    if (getpwuid_r(euid, &epwd, &buffer[0], bufsize, &result) != 0 || !result) {
+    if (getpwuid_r(euid, &epwd, buffer.data(), bufsize, &result) != 0 || !result) {
         THROW(InvalidParameter,
               "Invalid input: effective user name cannot be found with UID %u.",
               euid);
@@ -62,7 +62,7 @@ UserInfo UserInfo::LocalUser() {
 
     retval.setEffectiveUser(epwd.pw_name);
 
-    if (getpwuid_r(uid, &pwd, &buffer[0], bufsize, &result) != 0 || !result) {
+    if (getpwuid_r(uid, &pwd, buffer.data(), bufsize, &result) != 0 || !result) {
         THROW(InvalidParameter,
               "Invalid input: real user name cannot be found with UID %u.",
               uid);

@@ -46,7 +46,7 @@ static void ATTRIBUTE_NOINLINE GetStack(int skip, int maxDepth,
     ++skip; //current frame.
     stack.resize(maxDepth + skip);
     int size;
-    size = backtrace(&stack[0], maxDepth + skip);
+    size = backtrace(stack.data(), maxDepth + skip);
     size = size - skip;
 
     if (size < 0) {
@@ -639,11 +639,11 @@ static const std::string SymbolizeAndDemangle(void * pc) {
     }
 
     if (!GetSymbolFromObjectFile(wrapped_object_fd.get(), pc0,
-                                 &buffer[0], buffer.size(), start_address)) {
+                                 buffer.data(), buffer.size(), start_address)) {
         return DEFAULT_STACK_PREFIX"Unknown";
     }
 
-    ss << DEFAULT_STACK_PREFIX << DemangleSymbol(&buffer[0]);
+    ss << DEFAULT_STACK_PREFIX << DemangleSymbol(buffer.data());
     return ss.str();
 }
 

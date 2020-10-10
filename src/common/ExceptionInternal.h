@@ -175,7 +175,7 @@ void ThrowException(bool nested, const char * f, int l,
     int offset = buffer.size();
     buffer.resize(offset + size + 1);
     va_start(ap, fmt);
-    vsnprintf(&buffer[offset], size + 1, fmt, ap);
+    vsnprintf(buffer.data() + offset, size + 1, fmt, ap);
     va_end(ap);
 
     if (!nested) {
@@ -218,7 +218,7 @@ void ThrowException(bool nested, const char * f, int l,
     int offset = buffer.size();
     buffer.resize(offset + size + 1);
     va_start(ap, fmt);
-    vsnprintf(&buffer[offset], size + 1, fmt, ap);
+    vsnprintf(buffer.data() + offset, size + 1, fmt, ap);
     va_end(ap);
 
     if (!nested) {

@@ -71,18 +71,18 @@ unordered_set<std::string> BuildLocalAddrSet() {
                 continue;
             }
 
-            memset(&host[0], 0, INET6_ADDRSTRLEN + 1);
+            memset(host.data(), 0, INET6_ADDRSTRLEN + 1);
 
             if (addr->sa_family == AF_INET) {
                 pHost =
                     inet_ntop(addr->sa_family,
                               &(reinterpret_cast<struct sockaddr_in *>(addr))->sin_addr,
-                              &host[0], INET6_ADDRSTRLEN);
+                              host.data(), INET6_ADDRSTRLEN);
             } else if (addr->sa_family == AF_INET6) {
                 pHost =
                     inet_ntop(addr->sa_family,
                               &(reinterpret_cast<struct sockaddr_in6 *>(addr))->sin6_addr,
-                              &host[0], INET6_ADDRSTRLEN);
+                              host.data(), INET6_ADDRSTRLEN);
             } else {
                 continue;
             }
@@ -102,13 +102,13 @@ unordered_set<std::string> BuildLocalAddrSet() {
         long hostlen = sysconf(_SC_HOST_NAME_MAX);
         host.resize(hostlen + 1);
 
-        if (gethostname(&host[0], host.size())) {
+        if (gethostname(host.data(), host.size())) {
             THROW(HdfsNetworkException,
                   "InputStreamImpl: cannot get hostname: %s",
                   GetSystemErrorInfo(errno));
         }
 
-        set.insert(&host[0]);
+        set.insert(host.data());
     } catch (...) {
         if (ifAddr != NULL) {
             freeifaddrs(ifAddr);

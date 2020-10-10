@@ -41,7 +41,7 @@ static void HandleRegError(int rc, regex_t * comp) {
     std::vector<char> buffer;
     size_t size = regerror(rc, comp, NULL, 0);
     buffer.resize(size + 1);
-    regerror(rc, comp, &buffer[0], buffer.size());
+    regerror(rc, comp, buffer.data(), buffer.size());
     THROW(HdfsIOException, "KerberosName: Failed to parse Kerberos principal.");
 }
 

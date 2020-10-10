@@ -188,7 +188,7 @@ public:
             return NULL;
         }
 
-        return &buffer[offset];
+        return buffer.data() + offset;
     }
 
     /**

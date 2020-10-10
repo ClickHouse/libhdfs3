@@ -98,7 +98,7 @@ static void Base64Decode(const std::string & urlSafe,
     }
 
     while (true) {
-        retval = gsasl_base64_from(&input[0], input.length(), &output, &outLen);
+        retval = gsasl_base64_from(input.data(), input.length(), &output, &outLen);
 
         if (GSASL_OK != retval) {
             switch (retval) {
@@ -126,7 +126,7 @@ static void Base64Decode(const std::string & urlSafe,
 
     assert(outLen >= 0);
     buffer.resize(outLen);
-    memcpy(&buffer[0], output, outLen);
+    memcpy(buffer.data(), output, outLen);
     gsasl_free(output);
 }
 
@@ -134,14 +134,14 @@ std::string Token::toString() const {
     try {
         size_t len = 0;
         std::vector<char> buffer(1024);
-        WritableUtils out(&buffer[0], buffer.size());
+        WritableUtils out(buffer.data(), buffer.size());
         len += out.WriteInt32(identifier.size());
-        len += out.WriteRaw(&identifier[0], identifier.size());
+        len += out.WriteRaw(identifier.data(), identifier.size());
         len += out.WriteInt32(password.size());
-        len += out.WriteRaw(&password[0], password.size());
+        len += out.WriteRaw(password.data(), password.size());
         len += out.WriteText(kind);
         len += out.WriteText(service);
-        return Base64Encode(&buffer[0], len);
+        return Base64Encode(buffer.data(), len);
     } catch (...) {
         NESTED_THROW(HdfsIOException, "cannot convert token to string");
     }
@@ -153,13 +153,13 @@ Token & Token::fromString(const std::string & str) {
     try {
         std::vector<char> buffer;
         Base64Decode(str, buffer);
-        WritableUtils in(&buffer[0], buffer.size());
+        WritableUtils in(buffer.data(), buffer.size());
         len = in.ReadInt32();
         identifier.resize(len);
-        in.ReadRaw(&identifier[0], len);
+        in.ReadRaw(identifier.data(), len);
         len = in.ReadInt32();
         password.resize(len);
-        in.ReadRaw(&password[0], len);
+        in.ReadRaw(password.data(), len);
         kind = in.ReadText();
         service = in.ReadText();
         return *this;
