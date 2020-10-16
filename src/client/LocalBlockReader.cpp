@@ -82,10 +82,6 @@ LocalBlockReader::LocalBlockReader(const shared_ptr<ReadShortCircuitInfo>& info,
             break;
 
         case ChecksumTypeProto::CHECKSUM_CRC32:
-            THROW(HdfsIOException,
-                  "LocalBlockReader does not support CRC32 checksum.");
-            break;
-
         case ChecksumTypeProto::CHECKSUM_CRC32C:
             if (HWCrc32c::available()) {
                 checksum = shared_ptr<Checksum>(new HWCrc32c());
