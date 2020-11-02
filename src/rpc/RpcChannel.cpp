@@ -768,7 +768,16 @@ void RpcChannelImpl::readOneResponse(bool writeLock) {
     /*
      * read response header
      */
-    headerSize = in->readVarint32(readTimeout);
+    int32_t headerSizeInt = in->readVarint32(readTimeout);
+    if (headerSizeInt<0) {
+
+        THROW(HdfsRpcException,
+              "RPC channel to \"%s:%s\" negative headerSize for header.",
+          key.getServer().getHost().c_str(), key.getServer().getPort().c_str());
+
+    }
+
+    headerSize = headerSizeInt;
     buffer.resize(headerSize);
     in->readFully(buffer.data(), headerSize, readTimeout);
 
@@ -794,21 +803,27 @@ void RpcChannelImpl::readOneResponse(bool writeLock) {
             rc = getPendingCall(curRespHeader.callid());
         }
 
-        bodySize = in->readVarint32(readTimeout);
-        buffer.resize(bodySize);
+        int32_t bodySizeInt = in->readVarint32(readTimeout);
+        // assert(bodySizeInt > 0);
+        if (bodySizeInt<0) {
+            THROW(HdfsRpcException,
+                "RPC channel to \"%s:%s\" negative bodySize.",
+                key.getServer().getHost().c_str(), key.getServer().getPort().c_str());
+        }
+        bodySize = bodySizeInt;
 
         if (bodySize > 0) {
+            buffer.resize(bodySize);
             in->readFully(buffer.data(), bodySize, readTimeout);
+
+            Message * response = rc->getCall().getResponse();
+
+            if (!response->ParseFromArray(buffer.data(), bodySize)) {
+                THROW(HdfsRpcException,
+                    "RPC channel to \"%s:%s\" got protocol mismatch: rpc channel cannot parse response.",
+                    key.getServer().getHost().c_str(), key.getServer().getPort().c_str());
+            }
         }
-
-        Message * response = rc->getCall().getResponse();
-
-        if (!response->ParseFromArray(buffer.data(), bodySize)) {
-            THROW(HdfsRpcException,
-                  "RPC channel to \"%s:%s\" got protocol mismatch: rpc channel cannot parse response.",
-                  key.getServer().getHost().c_str(), key.getServer().getPort().c_str())
-        }
-
         rc->done();
     } else {
         /*
