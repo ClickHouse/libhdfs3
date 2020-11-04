@@ -50,6 +50,19 @@ namespace Hdfs {
 
 namespace Internal {
 
+
+static void SetKRB5CCNAME(const std::string & cachePath) {
+#if WITH_KERBEROS
+    if (!cachePath.empty()) {
+        if (0 != setenv("KRB5CCNAME", cachePath.c_str(), 1)) {
+            THROW(HdfsIOException, "Cannot set env parameter \"KRB5CCNAME\"");
+        }
+    }
+#else
+    THROW(HdfsIOException, "libhdfs3 built without kerberos support");
+#endif
+}
+
 static std::string ExtractPrincipalFromTicketCache(
     const std::string & cachePath) {
 #if WITH_KERBEROS
@@ -60,11 +73,7 @@ static std::string ExtractPrincipalFromTicketCache(
     std::string errmsg, retval;
     char * priName = NULL;
 
-    if (!cachePath.empty()) {
-        if (0 != setenv("KRB5CCNAME", cachePath.c_str(), 1)) {
-            THROW(HdfsIOException, "Cannot set env parameter \"KRB5CCNAME\"");
-        }
-    }
+    SetKRB5CCNAME(cachePath);
 
     do {
         if (0 != (ec = krb5_init_context(&cxt))) {
@@ -246,7 +255,21 @@ void FileSystem::connect(const char * uri, const char * username, const char * t
         }
 
         if (auth == AuthMethod::KERBEROS) {
-            principal = ExtractPrincipalFromTicketCache(sconf.getKerberosCachePath());
+            if (username) {
+                principal = username;
+                std::cerr << "principal passed to FileSystem::connect is " << principal << std::endl;
+            }
+
+            // principal = ExtractPrincipalFromTicketCache(sconf.getKerberosCachePath());
+            const std::string & cache_path = sconf.getKerberosCachePath();
+            std::cerr << "cache_path is " << cache_path << std::endl;
+
+            if (principal.empty()) {
+                principal = ExtractPrincipalFromTicketCache(cache_path);
+                std::cerr << "principal obtained via ExtractPrincipalFromTicketCache is " << principal << std::endl;
+            } else {
+                SetKRB5CCNAME(cache_path);
+            }
         }
 
         impl = ConnectInternal(uri, principal, NULL, conf);
