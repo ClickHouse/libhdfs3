@@ -70,6 +70,7 @@ static inline uint32_t _mm_crc32_u8(uint32_t crc, uint8_t value) {
 #include <nmmintrin.h>
 
 #endif
+#endif
 
 namespace Hdfs {
 namespace Internal {
@@ -161,5 +162,3 @@ void HWCrc32c::updateInt64(const char * b, int len) {
 
 }
 }
-
-#endif /* _HDFS_LIBHDFS3_COMMON_HWCHECKSUM_H_ */
