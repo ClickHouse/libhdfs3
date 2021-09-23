@@ -112,7 +112,7 @@ FileSystemImpl::FileSystemImpl(const FileSystemKey& key, const Config& c)
     ss.imbue(std::locale::classic());
 
     double rand;
-    struct drand48_data buf;
+    static drand48_data buf;
     srand48_r(time(NULL), &buf);
     drand48_r(&buf, &rand);
 
