@@ -110,8 +110,15 @@ FileSystemImpl::FileSystemImpl(const FileSystemKey& key, const Config& c)
     static atomic<uint32_t> count(0);
     std::stringstream ss;
     ss.imbue(std::locale::classic());
-    ss << "libhdfs3_client_count_" << ++count << "_pid_"
+
+    double rand;
+    struct drand48_data buf;
+    srand48_r(time(NULL), &buf);
+    drand48_r(&buf, &rand);
+
+    ss << "libhdfs3_client_rand_" + std::to_string(rand) + "_count_" << ++count << "_pid_"
        << getpid() << "_tid_" << pthread_self();
+
     clientName = ss.str();
     workingDir = std::string("/user/") + user.getEffectiveUser();
     peerCache = shared_ptr<PeerCache>(new PeerCache(sconf));
