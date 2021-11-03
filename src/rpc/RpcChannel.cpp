@@ -769,10 +769,10 @@ void RpcChannelImpl::readOneResponse(bool writeLock) {
      * read response header
      */
     int32_t headerSizeInt = in->readVarint32(readTimeout);
-    if (headerSizeInt<0) {
+    if (headerSizeInt<=0) {
 
         THROW(HdfsRpcException,
-              "RPC channel to \"%s:%s\" negative headerSize for header.",
+              "RPC channel to \"%s:%s\" negative or zero headerSize for header.",
           key.getServer().getHost().c_str(), key.getServer().getPort().c_str());
 
     }
