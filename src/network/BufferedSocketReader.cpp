@@ -46,7 +46,7 @@ BufferedSocketReaderImpl::BufferedSocketReaderImpl(Socket & s, size_t bufferSize
 }
 
 int32_t BufferedSocketReaderImpl::read(char * b, int32_t s) {
-    assert(s >= 0 && NULL != b);
+    assert(s > 0 && NULL != b);
     int32_t done = s < size - cursor ? s : size - cursor;
 
     if (done > 0) {
@@ -61,7 +61,7 @@ int32_t BufferedSocketReaderImpl::read(char * b, int32_t s) {
 }
 
 void BufferedSocketReaderImpl::readFully(char * b, int32_t s, int timeout) {
-    assert(s >= 0 && NULL != b);
+    assert(s > 0 && NULL != b);
     int32_t done = s < size - cursor ? s : size - cursor;
     memcpy(b, buffer.data() + cursor, done);
     cursor += done;
