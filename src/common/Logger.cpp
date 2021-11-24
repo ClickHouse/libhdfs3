@@ -84,7 +84,7 @@ void Logger::printf(LogSeverity s, const char * fmt, ...) {
     }
 
     const char * enable_logging_env = std::getenv("HDFS_ENABLE_LOGGING");
-    bool enable_logging = fd != STDERR_FILENO;
+    bool enable_logging = false;
     if (enable_logging_env) {
         enable_logging = std::string(enable_logging_env) == "true";
     }
