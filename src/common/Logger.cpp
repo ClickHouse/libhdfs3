@@ -83,6 +83,12 @@ void Logger::printf(LogSeverity s, const char * fmt, ...) {
         return;
     }
 
+    const char * enable_logging_env = std::getenv("HDFS_ENABLE_LOGGING");
+    bool enable_logging = false;
+    if (enable_logging_env) {
+        enable_logging = std::string(enable_logging_env) == "true";
+    }
+
     try {
         call_once(Once, InitProcessId);
         std::vector<char> buffer;
@@ -103,8 +109,10 @@ void Logger::printf(LogSeverity s, const char * fmt, ...) {
         va_start(ap, fmt);
         size += vsnprintf(buffer.data() + size, buffer.size() - size, fmt, ap);
         va_end(ap);
-        lock_guard<mutex> lock(LoggerMutex);
-        dprintf(fd, "%s\n", buffer.data());
+        if (enable_logging) {
+            lock_guard<mutex> lock(LoggerMutex);
+            dprintf(fd, "%s\n", buffer.data());
+        }
         return;
     } catch (const std::exception & e) {
         dprintf(fd, "%s:%d %s %s", __FILE__, __LINE__,
@@ -115,4 +123,3 @@ void Logger::printf(LogSeverity s, const char * fmt, ...) {
 
 }
 }
-
