@@ -137,12 +137,12 @@ static inline shared_ptr<LocatedBlock> Convert(const LocatedBlockProto & proto) 
         Convert(nodes[i], proto.locs(i));
     }
 
-    if (proto.storagetypes_size() > 0) {
-        assert(proto.storagetypes_size() == proto.locs_size());
+    if (proto.storageids_size() > 0) {
+        assert(proto.storageids_size() == proto.locs_size());
         std::vector<std::string> & storageIDs = lb->mutableStorageIDs();
-        storageIDs.resize(proto.storagetypes_size());
+        storageIDs.resize(proto.storageids_size());
 
-        for (int i = 0; i < proto.storagetypes_size(); ++i) {
+        for (int i = 0; i < proto.storageids_size(); ++i) {
             storageIDs[i] = proto.storageids(i);
         }
     }
