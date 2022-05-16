@@ -159,6 +159,46 @@ message DataEncryptionKeyProto {
   optional string encryptionAlgorithm = 6;
 }
 
+/**
+ * ECSchema options entry
+ */
+message ECSchemaOptionEntryProto {
+  required string key = 1;
+  required string value = 2;
+}
+
+/**
+ * ECSchema for erasurecoding
+ */
+message ECSchemaProto {
+  required string codecName = 1;
+  required uint32 dataUnits = 2;
+  required uint32 parityUnits = 3;
+  repeated ECSchemaOptionEntryProto options = 4;
+}
+
+/**
+ * EC policy state.
+ */
+enum ErasureCodingPolicyState {
+  DISABLED = 1;
+  ENABLED = 2;
+  REMOVED = 3;
+}
+
+message ErasureCodingPolicyProto {
+  optional string name = 1;
+  optional ECSchemaProto schema = 2;
+  optional uint32 cellSize = 3;
+  required uint32 id = 4; // Actually a byte - only 8 bits used
+  optional ErasureCodingPolicyState state = 5 [default = ENABLED];
+}
+
+message AddErasureCodingPolicyResponseProto {
+  required ErasureCodingPolicyProto policy = 1;
+  required bool succeed = 2;
+  optional string errorMsg = 3;
+}
 
 /**
  * A set of file blocks and their locations.
@@ -169,6 +209,9 @@ message LocatedBlocksProto {
   required bool underConstruction = 3;
   optional LocatedBlockProto lastBlock = 4;
   required bool isLastBlockComplete = 5;
+
+    // Optional field for erasure coding
+  optional ErasureCodingPolicyProto ecPolicy = 7;
 }
 
 

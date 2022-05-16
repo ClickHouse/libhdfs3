@@ -137,12 +137,12 @@ static inline shared_ptr<LocatedBlock> Convert(const LocatedBlockProto & proto) 
         Convert(nodes[i], proto.locs(i));
     }
 
-    if (proto.storageids_size() > 0) {
-        assert(proto.storageids_size() == proto.locs_size());
+    if (proto.storagetypes_size() > 0) {
+        assert(proto.storagetypes_size() == proto.locs_size());
         std::vector<std::string> & storageIDs = lb->mutableStorageIDs();
-        storageIDs.resize(proto.storageids_size());
+        storageIDs.resize(proto.storagetypes_size());
 
-        for (int i = 0; i < proto.storageids_size(); ++i) {
+        for (int i = 0; i < proto.storagetypes_size(); ++i) {
             storageIDs[i] = proto.storageids(i);
         }
     }
@@ -155,6 +155,8 @@ static inline shared_ptr<LocatedBlock> Convert(const LocatedBlockProto & proto) 
 
 static inline void Convert(LocatedBlocks & lbs,
                            const LocatedBlocksProto & proto) {
+    if (proto.has_ecpolicy())
+        THROW(HdfsIOException, "EC policy is not supported");
     shared_ptr<LocatedBlock> lb;
     lbs.setFileLength(proto.filelength());
     lbs.setIsLastBlockComplete(proto.islastblockcomplete());
