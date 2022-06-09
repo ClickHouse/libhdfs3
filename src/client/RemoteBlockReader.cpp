@@ -32,9 +32,11 @@
 #include "HWCrc32c.h"
 #include "RemoteBlockReader.h"
 #include "SWCrc32c.h"
+#include "IntelAsmCrc32c.h"
 #include "WriteBuffer.h"
 
 #include <inttypes.h>
+#include <memory>
 #include <vector>
 
 namespace Hdfs {
@@ -153,11 +155,15 @@ void RemoteBlockReader::checkResponse() {
 
     case ChecksumTypeProto::CHECKSUM_CRC32:
     case ChecksumTypeProto::CHECKSUM_CRC32C:
+#if defined(__SSE4_2__) && defined(__LP64__)
+        checksum = std::make_shared<IntelAsmCrc32c>();
+#else
         if (HWCrc32c::available()) {
             checksum = shared_ptr<Checksum>(new HWCrc32c());
         } else {
             checksum = shared_ptr<Checksum>(new SWCrc32c());
         }
+#endif
 
         checksumSize = sizeof(int32_t);
         break;
