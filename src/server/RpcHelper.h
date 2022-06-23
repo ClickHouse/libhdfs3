@@ -155,6 +155,8 @@ static inline shared_ptr<LocatedBlock> Convert(const LocatedBlockProto & proto) 
 
 static inline void Convert(LocatedBlocks & lbs,
                            const LocatedBlocksProto & proto) {
+    if (proto.has_ecpolicy())
+        THROW(HdfsIOException, "EC policy is not supported");
     shared_ptr<LocatedBlock> lb;
     lbs.setFileLength(proto.filelength());
     lbs.setIsLastBlockComplete(proto.islastblockcomplete());
