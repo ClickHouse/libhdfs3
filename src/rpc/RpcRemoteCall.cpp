@@ -63,9 +63,8 @@ void RpcRemoteCall::serialize(const RpcProtocolInfo & protocol,
     wrapper.writeTo(buffer);
 }
 
-std::vector<char> RpcRemoteCall::GetPingRequest(const std::string & clientid) {
-    WriteBuffer buffer;
-    std::vector<char> retval;
+WriteBuffer * RpcRemoteCall::GetPingRequest(const std::string & clientid) {
+    auto buffer = std::make_shared<WriteBuffer>();
     RpcRequestHeaderProto pingHeader;
     pingHeader.set_callid(PING_CALL_ID);
     pingHeader.set_clientid(clientid);
@@ -74,12 +73,10 @@ std::vector<char> RpcRemoteCall::GetPingRequest(const std::string & clientid) {
     pingHeader.set_rpcop(RpcRequestHeaderProto_OperationProto_RPC_FINAL_PACKET);
     int rpcHeaderLen = pingHeader.ByteSize();
     int size = CodedOutputStream::VarintSize32(rpcHeaderLen) + rpcHeaderLen;
-    buffer.writeBigEndian(size);
-    buffer.writeVarint32(rpcHeaderLen);
-    pingHeader.SerializeWithCachedSizesToArray(reinterpret_cast<unsigned char *>(buffer.alloc(pingHeader.ByteSize())));
-    retval.resize(buffer.getDataSize(0));
-    memcpy(retval.data(), buffer.getBuffer(0), retval.size());
-    return retval;
+    buffer->writeBigEndian(size);
+    buffer->writeVarint32(rpcHeaderLen);
+    pingHeader.SerializeWithCachedSizesToArray(reinterpret_cast<unsigned char *>(buffer->alloc(pingHeader.ByteSize())));
+    return buffer.get();
 }
 
 }
