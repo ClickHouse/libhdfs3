@@ -26,6 +26,7 @@
  * limitations under the License.
  */
 #include "BigEndian.h"
+#include "Crc32.h"
 #include "DataTransferProtocolSender.h"
 #include "Exception.h"
 #include "ExceptionInternal.h"
@@ -154,6 +155,10 @@ void RemoteBlockReader::checkResponse() {
         break;
 
     case ChecksumTypeProto::CHECKSUM_CRC32:
+        checksum = std::make_shared<Crc32>();
+        checksumSize = sizeof(int32_t);
+        break;
+
     case ChecksumTypeProto::CHECKSUM_CRC32C:
 #if defined(__SSE4_2__) && defined(__LP64__)
         checksum = std::make_shared<IntelAsmCrc32c>();
