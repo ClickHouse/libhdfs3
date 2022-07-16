@@ -355,9 +355,10 @@ void InputStreamImpl::setupBlockReader(bool temporaryDisableLocalRead) {
 
                 shared_ptr<ReadShortCircuitInfo> info;
                 ReadShortCircuitInfoBuilder builder(curNode, auth, *conf);
+                EncryptionKey ekey = filesystem->getEncryptionKeys();
 
                 try {
-                    info = builder.fetchOrCreate(*curBlock, curBlock->getToken());
+                    info = builder.fetchOrCreate(*curBlock, curBlock->getToken(), ekey);
 
                     if (!info) {
                         continue;
@@ -378,6 +379,7 @@ void InputStreamImpl::setupBlockReader(bool temporaryDisableLocalRead) {
                 const char * clientName = filesystem->getClientName();
                 lastReadFromLocal = false;
                 blockReader = shared_ptr<BlockReader>(new RemoteBlockReader(
+                    filesystem,
                     *curBlock, curNode, *peerCache, offset, len,
                     curBlock->getToken(), clientName, verify, *conf));
             }
@@ -398,10 +400,16 @@ void InputStreamImpl::setupBlockReader(bool temporaryDisableLocalRead) {
                  * disable local block reading
                  */
             } else {
-                LOG(LOG_ERROR,
-                    "cannot setup block reader for Block: %s file %s on Datanode: %s.\n%s\nretry another node",
-                    curBlock->toString().c_str(), path.c_str(),
-                    curNode.formatAddress().c_str(), GetExceptionDetail(e, buffer));
+                if (conf->getEncryptedDatanode() || conf->getSecureDatanode())
+                    LOG(WARNING,
+                        "cannot setup block reader for Block: %s file %s on Datanode: %s retry another node",
+                        curBlock->toString().c_str(), path.c_str(),
+                        curNode.formatAddress().c_str());
+                else
+                    LOG(LOG_ERROR,
+                        "cannot setup block reader for Block: %s file %s on Datanode: %s.\n%s\nretry another node",
+                        curBlock->toString().c_str(), path.c_str(),
+                        curNode.formatAddress().c_str(), GetExceptionDetail(e, buffer));
                 failedNodes.push_back(curNode);
                 std::sort(failedNodes.begin(), failedNodes.end());
             }
@@ -481,7 +489,7 @@ int32_t InputStreamImpl::readOneBlock(char * buf, int32_t size, bool shouldUpdat
         } catch (const HdfsInvalidBlockToken & e) {
             std::string buffer;
             LOG(LOG_ERROR,
-                "InputStreamImpl: failed to read Block: %s file %s, \n%s, retry after updating block informations.",
+                "InputStreamImpl: failed to read Block (stale token): %s file %s, \n%s, retry after updating block informations.",
                 curBlock->toString().c_str(), path.c_str(), GetExceptionDetail(e, buffer));
             return -1;
         } catch (const HdfsIOException & e) {
@@ -490,10 +498,15 @@ int32_t InputStreamImpl::readOneBlock(char * buf, int32_t size, bool shouldUpdat
              * We now update block informations once, and try again.
              */
             if (shouldUpdateMetadataOnFailure) {
-                LOG(LOG_ERROR,
-                    "InputStreamImpl: failed to read Block: %s file %s, \n%s, retry after updating block informations.",
-                    curBlock->toString().c_str(), path.c_str(),
-                    GetExceptionDetail(e, buffer));
+                if (conf->getEncryptedDatanode() || conf->getSecureDatanode())
+                    LOG(WARNING,
+                        "InputStreamImpl: failed to read Block: %s file %s, retry after updating block informations.",
+                        curBlock->toString().c_str(), path.c_str());
+                else
+                    LOG(LOG_ERROR,
+                        "InputStreamImpl: failed to read Block: %s file %s, \n%s, retry after updating block informations.",
+                        curBlock->toString().c_str(), path.c_str(),
+                        GetExceptionDetail(e, buffer));
                 return -1;
             } else {
                 /*

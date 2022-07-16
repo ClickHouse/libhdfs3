@@ -227,9 +227,10 @@ const RpcSaslProto_SaslAuth * RpcChannelImpl::createSaslClient(
 
         THROW(AccessControlException, "%s", ss.str().c_str());
     }
-
+    const RpcConfig & conf = key.getConf();
     saslClient = shared_ptr<SaslClient>(
-                     new SaslClient(*auth, token, key.getAuth().getUser().getPrincipal()));
+                     new SaslClient(*auth, token, key.getAuth().getUser().getPrincipal(),
+                     false, conf.getProtection()));
     return auth;
 }
 
@@ -664,6 +665,11 @@ void RpcChannelImpl::checkOneResponse() {
     }
 }
 
+void RpcChannelImpl::Ping() {
+    unique_lock<mutex> lock(writeMut);
+    sendPing();
+}
+
 void RpcChannelImpl::sendPing() {
     if (available) {
         LOG(INFO,
@@ -937,7 +943,7 @@ void RpcChannelImpl::readOneResponse(bool writeLock) {
     }
     if (saslClient && (saslClient->isPrivate() || saslClient->isIntegrity()) && saslComplete) {
 
-        if (curRespHeader.callid() != AuthProtocol::SASL) {
+        if (curRespHeader.callid() != (unsigned)AuthProtocol::SASL) {
             THROW(HdfsRpcException,
                   "RPC channel to \"%s:%s\" got protocol mismatch: RPC channel expected SASL wrapped message.",
                   key.getServer().getHost().c_str(), key.getServer().getPort().c_str())
