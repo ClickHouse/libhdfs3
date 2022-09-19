@@ -76,7 +76,7 @@ int32_t TcpSocketImpl::read(char * buffer, int32_t size) {
     }
 
     if (0 == rc) {
-        THROW(HdfsEndOfStream, "Read %d bytes failed from %s: End of the stream", size, remoteAddr.c_str());
+        THROW_NO_STACK(HdfsEndOfStream, "Read %d bytes failed from %s: End of the stream", size, remoteAddr.c_str());
     }
 
     return rc;

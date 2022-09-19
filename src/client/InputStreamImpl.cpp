@@ -601,7 +601,7 @@ int32_t InputStreamImpl::readInternal(char * buf, int32_t size) {
                  * Check if we reach the end of file.
                  */
                 if (cursor >= getFileLength()) {
-                    THROW(HdfsEndOfStream,
+                    THROW_NO_STACK(HdfsEndOfStream,
                           "InputStreamImpl: read over EOF, current position: %" PRId64 ", read size: %d, from file: %s",
                           cursor, size, path.c_str());
                 }
@@ -696,7 +696,7 @@ void InputStreamImpl::readFullyInternal(char * buf, int64_t size) {
     } catch (const HdfsCanceled & e) {
         throw;
     } catch (const HdfsEndOfStream & e) {
-        THROW(HdfsEndOfStream,
+        THROW_NO_STACK(HdfsEndOfStream,
               "InputStreamImpl: read over EOF, current position: %" PRId64 ", read size: %" PRId64 ", from file: %s",
               pos, size, path.c_str());
     } catch (const HdfsException & e) {
@@ -746,7 +746,7 @@ void InputStreamImpl::seekInternal(int64_t pos) {
         updateBlockInfos();
 
         if (pos > getFileLength()) {
-            THROW(HdfsEndOfStream,
+            THROW_NO_STACK(HdfsEndOfStream,
                   "InputStreamImpl: seek over EOF, current position: %" PRId64 ", seek target: %" PRId64 ", in file: %s",
                   cursor, pos, path.c_str());
         }

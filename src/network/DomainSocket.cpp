@@ -137,13 +137,13 @@ int32_t DomainSocketImpl::receiveFileDescriptors(int fds[], size_t nfds,
   }
 
   if (0 == rc) {
-    THROW(HdfsEndOfStream,
+    THROW_NO_STACK(HdfsEndOfStream,
           "Read file descriptors failed from %s: End of the stream",
           remoteAddr.c_str());
   }
 
   if (msg.msg_controllen != cmsg->cmsg_len) {
-    THROW(HdfsEndOfStream, "Read file descriptors failed from %s.",
+    THROW_NO_STACK(HdfsEndOfStream, "Read file descriptors failed from %s.",
           remoteAddr.c_str());
   }
 
