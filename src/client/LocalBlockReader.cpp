@@ -87,9 +87,12 @@ LocalBlockReader::LocalBlockReader(const shared_ptr<ReadShortCircuitInfo>& info,
 #if defined(__SSE4_2__) && defined(__LP64__)
             checksum = std::make_shared<IntelAsmCrc32c>();
 #else
+#if !defined(__ppc__)
             if (HWCrc32c::available()) {
                 checksum = shared_ptr<Checksum>(new HWCrc32c());
-            } else {
+            } else
+#endif
+            {
                 checksum = shared_ptr<Checksum>(new SWCrc32c());
             }
 #endif
