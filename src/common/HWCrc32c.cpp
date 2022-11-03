@@ -93,7 +93,7 @@ bool HWCrc32c::available() {
 #endif
 }
 
-if !defined(__ppc__)
+#if !defined(__ppc__)
 void HWCrc32c::update(const void * b, int len) {
     const char * p = static_cast<const char *>(b);
 #if defined(__LP64__)
