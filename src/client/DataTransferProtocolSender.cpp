@@ -64,12 +64,12 @@ static inline void Send(Socket & sock, DataTransferOp op, Message * msg,
         memcpy(b, data.c_str(), data.length());
         int size = buffer2.getDataSize(0);
         rawdata.resize(size);
-        memcpy(rawdata.data(), buffer2.getBuffer(0), size);
+        memcpy(const_cast<char*>(rawdata.data()), buffer2.getBuffer(0), size);
     }
     else {
         int size = buffer.getDataSize(0);
         rawdata.resize(size);
-        memcpy(rawdata.data(), buffer.getBuffer(0), size);
+        memcpy(const_cast<char*>(rawdata.data()), buffer.getBuffer(0), size);
     }
     sock.writeFully(rawdata.c_str(), rawdata.length(), writeTimeout);
 }
@@ -429,4 +429,3 @@ void DataTransferProtocolSender::setupSasl(const ExtendedBlock blk, const Token&
 }
 }
 }
-

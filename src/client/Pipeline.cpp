@@ -712,7 +712,7 @@ void PipelineImpl::resend() {
             std::string indata;
             int size = b.getSize();
             indata.resize(size);
-            memcpy(indata.data(), b.getBuffer(), size);
+            memcpy(const_cast<char*>(indata.data()), b.getBuffer(), size);
             std::string data = sender->wrap(indata);
             WriteBuffer buffer;
             if (sender->needsLength())
@@ -757,7 +757,7 @@ void PipelineImpl::send(shared_ptr<Packet> packet) {
                     std::string indata;
                     int size = buffer.getSize();
                     indata.resize(size);
-                    memcpy(indata.data(), buffer.getBuffer(), size);
+                    memcpy(const_cast<char*>(indata.data()), buffer.getBuffer(), size);
                     std::string data = sender->wrap(indata);
                     WriteBuffer buffer2;
                     if (sender->needsLength())
