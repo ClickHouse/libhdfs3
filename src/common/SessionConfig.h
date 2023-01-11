@@ -335,6 +335,10 @@ public:
         return dataProtection;
     }
 
+    int32_t getStripeReaderThreadPoolSize() const {
+        return stripeReaderThreadPoolSize;
+    }
+
 public:
 
     int32_t rpcProtection;
@@ -388,6 +392,7 @@ public:
     int32_t socketCacheCapacity;
     int32_t socketCacheExpiry;
     std::string domainSocketPath;
+    int32_t stripeReaderThreadPoolSize;
 
     /*
      * OutputStream configure

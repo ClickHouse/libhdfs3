@@ -2,7 +2,7 @@
 
 	<property>
 		<name>dfs.default.uri</name>
-		<value>hdfs://localhost:9000</value>
+		<value>hdfs://sg-hadoop-test1.bigdata.bigo.inner:8888</value>
 	</property>
 
 	<property>
@@ -113,5 +113,10 @@
 	<property>
 		<name>dfs.client.socketcache.capacity</name>
 		<value>1</value>
+	</property>
+
+	<property>
+		<name>dfs.client.read.striped.thread-pool.size</name>
+		<value>64</value>
 	</property>
 </configuration>
