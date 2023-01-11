@@ -29,6 +29,7 @@
 #define _HDFS_LIBHDFS3_CLIENT_INPUTSTREAM_H_
 
 #include "FileSystem.h"
+#include "server/LocatedBlocks.h"
 
 namespace Hdfs {
 namespace Internal {
@@ -41,7 +42,8 @@ class InputStreamInter;
 class InputStream {
 public:
     InputStream();
-
+    InputStream(Internal::shared_ptr<Internal::LocatedBlocks> lbs);
+    
     ~InputStream();
 
     /**

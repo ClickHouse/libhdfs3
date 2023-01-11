@@ -37,6 +37,7 @@
 #include "Memory.h"
 #include "OutputStream.h"
 #include "server/NamenodeInfo.h"
+#include "server/LocatedBlocks.h"
 #include "SessionConfig.h"
 #include "Thread.h"
 #include "XmlConfig.h"
@@ -657,6 +658,7 @@ hdfsFile hdfsOpenFile(hdfsFS fs, const char * path, int flags, int bufferSize,
 
     try {
         file = new HdfsFileInternalWrapper();
+        Hdfs::Internal::SessionConfig conf(*DefaultConfig().getConfig());
 
         if ((flags & O_CREAT) || (flags & O_APPEND) || (flags & O_WRONLY)) {
             int internalFlags = 0;
@@ -681,10 +683,22 @@ hdfsFile hdfsOpenFile(hdfsFS fs, const char * path, int flags, int bufferSize,
                      blocksize);
             file->setStream(os);
         } else {
-            file->setInput(true);
-            is = new InputStream;
-            is->open(fs->getFilesystem(), path, true);
-            file->setStream(is);
+            // get blocklocations before open
+            int64_t prefetchSize = conf.getDefaultBlockSize() * conf.getPrefetchSize();
+            shared_ptr<Hdfs::Internal::LocatedBlocks> lbs = 
+                shared_ptr<Hdfs::Internal::LocatedBlocksImpl>(new Hdfs::Internal::LocatedBlocksImpl);
+            fs->getFilesystem().getBlockLocations(path, 0, prefetchSize, *lbs);
+
+            // check whether the blocks have ecpolicy
+            if (lbs->getEcPolicy()) {
+                LOG(Hdfs::Internal::WARNING, "not support to open ec file(%s)\n", path);
+                return NULL;
+            } else {
+                file->setInput(true);
+                is = new InputStream(lbs);
+                is->open(fs->getFilesystem(), path, true);
+                file->setStream(is);
+            }
         }
 
         return file;

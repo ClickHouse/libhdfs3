@@ -618,4 +618,26 @@ void FileSystem::cancelDelegationToken(const std::string & token) {
     impl->filesystem->cancelDelegationToken(token);
 }
 
+/**
+ * Get locations of the blocks of the specified file within the specified range.
+ * DataNode locations for each block are sorted by
+ * the proximity to the client.
+ *
+ * The client will then have to contact
+ * one of the indicated DataNodes to obtain the actual data.
+ *
+ * @param src file name
+ * @param offset range start offset
+ * @param length range length
+ * @param lbs output the returned blocks
+ */
+void FileSystem::getBlockLocations(const std::string & src, int64_t offset,
+                                   int64_t length, Hdfs::Internal::LocatedBlocks & lbs) {
+    if (!impl) {
+        THROW(HdfsIOException, "FileSystem: not connected.");
+    }
+
+    return impl->filesystem->getBlockLocations(src, offset, length, lbs);
+}
+
 }

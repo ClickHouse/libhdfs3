@@ -34,6 +34,7 @@
 #include "FileSystemStats.h"
 #include "Permission.h"
 #include "XmlConfig.h"
+#include "server/LocatedBlocks.h"
 
 #include <vector>
 
@@ -281,6 +282,22 @@ public:
      * @throws IOException
      */
     void cancelDelegationToken(const std::string & token);
+
+    /**
+     * Get locations of the blocks of the specified file within the specified range.
+     * DataNode locations for each block are sorted by
+     * the proximity to the client.
+     *
+     * The client will then have to contact
+     * one of the indicated DataNodes to obtain the actual data.
+     *
+     * @param src file name
+     * @param offset range start offset
+     * @param length range length
+     * @param lbs output the returned blocks
+     */
+    void getBlockLocations(const std::string & src, int64_t offset,
+                           int64_t length, Hdfs::Internal::LocatedBlocks & lbs);
 
 private:
     Config conf;

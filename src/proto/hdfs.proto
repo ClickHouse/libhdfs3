@@ -210,7 +210,7 @@ message LocatedBlocksProto {
   optional LocatedBlockProto lastBlock = 4;
   required bool isLastBlockComplete = 5;
 
-    // Optional field for erasure coding
+  // Optional field for erasure coding
   optional ErasureCodingPolicyProto ecPolicy = 7;
 }
 
