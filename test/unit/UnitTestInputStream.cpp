@@ -68,6 +68,8 @@ public:
     MOCK_METHOD1(findBlock, LocatedBlock * (int64_t position));
     MOCK_METHOD0(getBlocks, std::vector<LocatedBlock> & ());
     MOCK_METHOD1(setLastBlock, void(shared_ptr<LocatedBlock>));
+    MOCK_CONST_METHOD0(getEcPolicy, bool ());
+    MOCK_METHOD1(setEcPolicy, void (bool isStriped));
 };
 
 class MockDatanodeStub: public TestDatanodeStub {

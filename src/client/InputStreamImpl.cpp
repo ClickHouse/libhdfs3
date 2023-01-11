@@ -133,6 +133,11 @@ InputStreamImpl::InputStreamImpl() :
 #endif
 }
 
+InputStreamImpl::InputStreamImpl(shared_ptr<LocatedBlocks> lbsPtr) {
+    new (this)InputStreamImpl();
+    lbs = lbsPtr;
+}
+
 InputStreamImpl::~InputStreamImpl() {
 }
 
@@ -210,6 +215,14 @@ int64_t InputStreamImpl::readBlockLength(const LocatedBlock & b) {
  * Getting blocks locations'information from namenode
  */
 void InputStreamImpl::updateBlockInfos() {
+    updateBlockInfos(true);
+}
+
+/**
+ * Getting blocks locations'information from namenode
+ * @param need Whether getBlockLocations needs to be called.
+ */
+void InputStreamImpl::updateBlockInfos(bool need) {
     int retry = maxGetBlockInfoRetry;
 
     for (int i = 0; i < retry; ++i) {
@@ -218,7 +231,12 @@ void InputStreamImpl::updateBlockInfos() {
                 lbs = shared_ptr < LocatedBlocksImpl > (new LocatedBlocksImpl);
             }
 
-            filesystem->getBlockLocations(path, cursor, prefetchSize, *lbs);
+            if (need) {
+                filesystem->getBlockLocations(path, cursor, prefetchSize, *lbs);
+            }
+
+            // set true for retry scenario
+            need = true;
 
             if (lbs->isLastBlockComplete()) {
                 lastBlockBeingWrittenLength = 0;
@@ -444,7 +462,7 @@ void InputStreamImpl::openInternal(shared_ptr<FileSystemInter> fs, const char * 
         localRead = conf->isReadFromLocal();
         maxGetBlockInfoRetry = conf->getMaxGetBlockInfoRetry();
         peerCache = &fs->getPeerCache();
-        updateBlockInfos();
+        updateBlockInfos(!lbs);
         closed = false;
     } catch (const HdfsCanceled & e) {
         throw;

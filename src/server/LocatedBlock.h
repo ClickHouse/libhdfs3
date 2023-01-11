@@ -104,12 +104,32 @@ public:
         this->storageIDs = sid;
     }
 
+    void setStriped(bool isStriped) {
+        this->striped = isStriped;
+    }
+
+    bool isStriped() const {
+        return striped;
+    }
+    
+    std::vector<int8_t> & getIndices() {
+        return indices;
+    }
+    
+    std::vector<Token> & getTokens() {
+        return tokens;
+    }
+
 private:
     int64_t offset;
     bool corrupt;
     std::vector<DatanodeInfo> locs;
     std::vector<std::string> storageIDs;
     Token token;
+    // for ec block
+    bool striped = false;
+    std::vector<int8_t> indices;
+    std::vector<Token> tokens;
 };
 
 }
