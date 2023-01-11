@@ -132,6 +132,8 @@ SessionConfig::SessionConfig(const Config & conf) {
             &socketCacheExpiry, "dfs.client.socketcache.expiryMsec", 3000, bind(CheckRangeGE<int32_t>, _1, _2, 0)
         }, {
             &socketCacheCapacity, "dfs.client.socketcache.capacity", 16, bind(CheckRangeGE<int32_t>, _1, _2, 0)
+        }, {
+            &stripeReaderThreadPoolSize, "dfs.client.read.striped.thread-pool.size", 64
         }
     };
     ConfigDefault<int64_t> i64Values [] = {
