@@ -30,6 +30,7 @@
 
 #include "LocatedBlock.h"
 #include "Memory.h"
+#include "client/ECPolicy.h"
 
 #include <cassert>
 
@@ -59,6 +60,10 @@ public:
     virtual const LocatedBlock * findBlock(int64_t position) = 0;
 
     virtual std::vector<LocatedBlock> & getBlocks() = 0;
+
+    virtual ECPolicy * getEcPolicy() const = 0;
+
+    virtual void setEcPolicy(ECPolicy * ecPolicy) = 0;
 };
 
 /**
@@ -105,13 +110,22 @@ public:
         return blocks;
     }
 
+    ECPolicy * getEcPolicy() const {
+        return ecPolicy;
+    }
+
+    void setEcPolicy(ECPolicy * ecPolicy) {
+        this->ecPolicy = ecPolicy;
+    }
+
 private:
     bool lastBlockComplete;
     bool underConstruction;
     int64_t fileLength;
     shared_ptr<LocatedBlock> lastBlock;
     std::vector<LocatedBlock> blocks;
-
+    bool isStriped = false;
+    ECPolicy * ecPolicy = nullptr; // free by SystemECPolicies
 };
 
 }

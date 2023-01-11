@@ -39,6 +39,8 @@
 #include "LocatedBlock.h"
 #include "LocatedBlocks.h"
 #include "StackPrinter.h"
+#include "client/ECPolicy.h"
+#include "client/SystemECPolicies.h"
 
 #include <algorithm>
 #include <cassert>
@@ -126,8 +128,23 @@ static inline void Convert(DatanodeInfo & node,
 }
 
 static inline shared_ptr<LocatedBlock> Convert(const LocatedBlockProto & proto) {
-    Token token;
     shared_ptr<LocatedBlock> lb(new LocatedBlock);
+    if (proto.has_blockindices()) {
+        lb->setStriped(true);
+        std::vector<int8_t> & indeces = lb->getIndices();
+        indeces.resize(proto.blockindices().size());
+        for (int i = 0; i < (int)proto.blockindices().size(); ++i) {
+            indeces[i] = ((int8_t)proto.blockindices()[i]);
+        }
+        std::vector<Token> & tokens = lb->getTokens();
+        tokens.resize(proto.blocktokens_size());
+        for (int i = 0; i < proto.blocktokens_size(); ++i) {
+            Token token;
+            Convert(token, proto.blocktokens(i));
+            tokens[i] = token;
+        }
+    }
+    Token token;
     Convert(token, proto.blocktoken());
     lb->setToken(token);
     std::vector<DatanodeInfo> & nodes = lb->mutableLocations();
@@ -153,6 +170,26 @@ static inline shared_ptr<LocatedBlock> Convert(const LocatedBlockProto & proto) 
     return lb;
 }
 
+static inline void Convert(LocatedBlocks & lbs, 
+                           const ErasureCodingPolicyProto & proto) {
+    int8_t id = (int8_t)(proto.id() & 0xFF);
+    SystemECPolicies & sysPolicy = SystemECPolicies::getInstance();
+    ECPolicy * policy = sysPolicy.getById(id);
+    if (policy != nullptr) {
+        lbs.setEcPolicy(policy);
+    } else {
+        policy = new ECPolicy();
+        policy->setId(id);
+        policy->setName(proto.name().c_str());
+        policy->setCellSize(proto.cellsize());
+        policy->setCodecName(proto.schema().codecname().c_str());
+        policy->setNumDataUnits(proto.schema().dataunits());
+        policy->setNumParityUnits(proto.schema().parityunits());
+        sysPolicy.addEcPolicy(proto.id(), policy);
+        lbs.setEcPolicy(policy);
+    }
+}
+
 static inline void Convert(LocatedBlocks & lbs,
                            const LocatedBlocksProto & proto) {
     shared_ptr<LocatedBlock> lb;
@@ -173,6 +210,9 @@ static inline void Convert(LocatedBlocks & lbs,
     }
 
     std::sort(blocks.begin(), blocks.end(), std::less<LocatedBlock>());
+    if (proto.has_ecpolicy()) {
+        Convert(lbs, proto.ecpolicy());
+    }
 }
 
 static inline void Convert(const std::string & src, FileStatus & fs,

@@ -39,6 +39,10 @@ InputStream::InputStream() {
     impl = new Internal::InputStreamImpl;
 }
 
+InputStream::InputStream(shared_ptr<LocatedBlocks> lbs) {
+    impl = new Internal::InputStreamImpl(lbs);
+}
+
 InputStream::~InputStream() {
     delete impl;
 }

@@ -57,6 +57,7 @@ namespace Internal {
 class InputStreamImpl: public InputStreamInter {
 public:
     InputStreamImpl();
+    InputStreamImpl(shared_ptr<LocatedBlocks> lbs);
     ~InputStreamImpl();
 
     /**
@@ -123,6 +124,7 @@ private:
     void seekToBlock(const LocatedBlock & lb);
     void setupBlockReader(bool temporaryDisableLocalRead);
     void updateBlockInfos();
+    void updateBlockInfos(bool need);
 
 private:
     bool closed;
