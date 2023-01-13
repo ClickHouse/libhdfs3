@@ -688,17 +688,10 @@ hdfsFile hdfsOpenFile(hdfsFS fs, const char * path, int flags, int bufferSize,
             shared_ptr<Hdfs::Internal::LocatedBlocks> lbs = 
                 shared_ptr<Hdfs::Internal::LocatedBlocksImpl>(new Hdfs::Internal::LocatedBlocksImpl);
             fs->getFilesystem().getBlockLocations(path, 0, prefetchSize, *lbs);
-
-            // check whether the blocks have ecpolicy
-            if (lbs->getEcPolicy()) {
-                LOG(Hdfs::Internal::WARNING, "not support to open ec file(%s)\n", path);
-                return NULL;
-            } else {
-                file->setInput(true);
-                is = new InputStream(lbs);
-                is->open(fs->getFilesystem(), path, true);
-                file->setStream(is);
-            }
+            file->setInput(true);
+            is = new InputStream(lbs);
+            is->open(fs->getFilesystem(), path, true);
+            file->setStream(is);
         }
 
         return file;

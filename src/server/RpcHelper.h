@@ -215,6 +215,26 @@ static inline void Convert(LocatedBlocks & lbs,
     }
 }
 
+static inline void Convert(FileStatus & fs,
+                           const ErasureCodingPolicyProto & proto) {
+    int8_t id = (int8_t)(proto.id() & 0xFF);
+    SystemECPolicies & sysPolicy = SystemECPolicies::getInstance();
+    ECPolicy * policy = sysPolicy.getById(id);
+    if (policy != nullptr) {
+        fs.setEcPolicy(policy);
+    } else {
+        policy = new ECPolicy();
+        policy->setId(id);
+        policy->setName(proto.name().c_str());
+        policy->setCellSize(proto.cellsize());
+        policy->setCodecName(proto.schema().codecname().c_str());
+        policy->setNumDataUnits(proto.schema().dataunits());
+        policy->setNumParityUnits(proto.schema().parityunits());
+        sysPolicy.addEcPolicy(proto.id(), policy);
+        fs.setEcPolicy(policy);
+    }
+}
+
 static inline void Convert(const std::string & src, FileStatus & fs,
                            const HdfsFileStatusProto & proto) {
     fs.setAccessTime(proto.access_time());
@@ -228,6 +248,9 @@ static inline void Convert(const std::string & src, FileStatus & fs,
     fs.setSymlink(proto.symlink().c_str());
     fs.setPermission(Permission(proto.permission().perm()));
     fs.setIsdir(proto.filetype() == HdfsFileStatusProto::IS_DIR);
+    if (proto.has_ecpolicy()) {
+        Convert(fs, proto.ecpolicy());
+    }
 }
 
 static inline void Convert(const std::string & src,

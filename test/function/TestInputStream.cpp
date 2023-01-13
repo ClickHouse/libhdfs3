@@ -28,6 +28,7 @@
 #include "client/FileSystem.h"
 #include "client/InputStream.h"
 #include "client/OutputStream.h"
+#include "client/hdfs.h"
 #include "DateTime.h"
 #include "Exception.h"
 #include "ExceptionInternal.h"
@@ -76,15 +77,28 @@ public:
         superfs->mkdirs(BASE_DIR, 0755);
         superfs->setOwner(TEST_HDFS_PREFIX, USER, NULL);
         superfs->setOwner(BASE_DIR, USER, NULL);
-        ous.open(*fs, BASE_DIR"smallfile", Create | Overwrite, 0644, true, 0, 2048);
+
+        setenv("LIBHDFS3_CONF", "function-test.xml", 1);
+        struct hdfsBuilder * bld = hdfsNewBuilder();
+        assert(bld != nullptr);
+        hdfsBuilderSetNameNode(bld, "default");
+        dfs = hdfsBuilderConnect(bld);
+        assert(dfs != nullptr);
+
         char buffer1[10], buffer2[20 * 2048];
         FillBuffer(buffer1, sizeof(buffer1), 0);
         FillBuffer(buffer2, sizeof(buffer2), 0);
-        ous.append(buffer1, sizeof(buffer1));
-        ous.close();
-        ous.open(*fs, BASE_DIR"largefile", Create, 0644, false, 0, 2048);
-        ous.append(buffer2, sizeof(buffer2));
-        ous.close();
+        hdfsFile wFile = hdfsOpenFile(dfs, BASE_DIR"smallfile", O_WRONLY, 2048, 0, 0);
+        assert(wFile != nullptr);
+        
+        hdfsWrite(dfs, wFile, buffer1, sizeof(buffer1));
+        hdfsCloseFile(dfs, wFile);
+
+        wFile = hdfsOpenFile(dfs, BASE_DIR"largefile", O_WRONLY, 2048, 0, 0);
+        assert(wFile != nullptr);
+        
+        hdfsWrite(dfs, wFile, buffer2, sizeof(buffer2));
+        hdfsCloseFile(dfs, wFile);
     }
 
     ~TestInputStream() {
@@ -99,6 +113,7 @@ public:
         delete superfs;
         remotefs->disconnect();
         delete remotefs;
+        hdfsDisconnect(dfs);
     }
 
     void OpenFailed(FileSystem & tfs) {
@@ -125,7 +140,7 @@ public:
 
         if (size == 2048) {
             ASSERT_NO_THROW(ins.seek(0));
-            ASSERT_NO_THROW(ins.read(buff, size + 100));
+            ASSERT_NO_THROW(ins.read(buff, size));
             EXPECT_TRUE(CheckBuffer(buff, size, 0));
             ASSERT_NO_THROW(ins.seek(2));
             ASSERT_NO_THROW(ins.read(buff, 100));
@@ -198,6 +213,7 @@ protected:
     FileSystem * remotefs;  //test remote block reader
     InputStream ins;
     OutputStream ous;
+    hdfsFS dfs;
 };
 
 TEST_F(TestInputStream, TestInputStream_OpenFailed) {
@@ -256,23 +272,23 @@ static void CheckFileContent(FileSystem * fs, std::string path, int64_t len, siz
     EXPECT_NO_THROW(in.close());
 }
 
-static void WriteFile(FileSystem * fs, std::string filename, int64_t writeSize, int flag) {
+static void WriteFile(hdfsFS dfs, std::string filename, int64_t writeSize, int flag) {
     std::vector<char> buffer(64 * 1024);
     int64_t todo, batch;
     size_t offset = 0;
     todo = writeSize;
-    OutputStream ousA;
-    ASSERT_NO_THROW(ousA.open(*fs, filename.c_str(), flag, 0644, false, 0, 1024 * 1024));
+    hdfsFile wFile = hdfsOpenFile(dfs, filename.c_str(), flag, 2048, 1, 1024 * 1024);
+    ASSERT_TRUE(wFile != nullptr);
 
     while (todo > 0) {
         batch = todo < static_cast<int>(buffer.size()) ? todo : buffer.size();
         Hdfs::FillBuffer(&buffer[0], batch, offset);
-        ASSERT_NO_THROW(DebugException(ousA.append(&buffer[0], batch)));
+        ASSERT_NO_THROW(DebugException(hdfsWrite(dfs, wFile, &buffer[0], batch)));
         todo -= batch;
         offset += batch;
     }
 
-    ASSERT_NO_THROW(ousA.close());
+    ASSERT_NO_THROW(hdfsCloseFile(dfs, wFile););
 }
 
 static void NothrowCheckFileContent(FileSystem * fs, std::string path,
@@ -281,12 +297,12 @@ static void NothrowCheckFileContent(FileSystem * fs, std::string path,
 }
 
 TEST_F(TestInputStream, TestReadOneFileSameTime) {
-    int flag = Create | Overwrite;
+    int flag = O_WRONLY;
     int64_t readSize = 1 * 1024 * 1024 + 234;
     int64_t writeSize = 1 * 1024 * 1024 * 1024 + 234;
     std::string filename(BASE_DIR"testReadOneFileSameTime");
     std::vector<shared_ptr<thread> > threads;
-    WriteFile(&*fs, filename, writeSize, flag);
+    WriteFile(dfs, filename, writeSize, flag);
 
     for (int i = 1; i <= 50; ++i) {
         threads.push_back(
@@ -303,7 +319,7 @@ TEST_F(TestInputStream, TestReadOneFileSameTime) {
  * test read many files in the same time
  */
 TEST_F(TestInputStream, TestReadManyFileSameTime) {
-    int flag = Create | Overwrite;
+    int flag = O_WRONLY;
     int64_t readSize = 1 * 1024 * 1024 + 234;
     int64_t writeSize = 20 * 1024 * 1024 + 234;
     std::vector<shared_ptr<thread> > threads;
@@ -313,7 +329,7 @@ TEST_F(TestInputStream, TestReadManyFileSameTime) {
         std::stringstream ss;
         ss.imbue(std::locale::classic());
         ss << filename << i;
-        WriteFile(fs, ss.str(), writeSize, flag);
+        WriteFile(dfs, ss.str(), writeSize, flag);
         threads.push_back(
             shared_ptr<thread>(
                 new thread(NothrowCheckFileContent, fs, ss.str(), readSize, 0)));
@@ -347,6 +363,14 @@ TEST(TestInputStreamWithOutputStream, TestOpenFirstAndAppend) {
     FileSystem fs(conf);
     fs.connect();
     SetupTestEnv(fs, conf);
+
+    setenv("LIBHDFS3_CONF", "function-test.xml", 1);
+    struct hdfsBuilder * bld = hdfsNewBuilder();
+    assert(bld != nullptr);
+    hdfsBuilderSetNameNode(bld, "default");
+    hdfsFS dfs = hdfsBuilderConnect(bld);
+    assert(dfs != nullptr);
+
     //int prefix = 45013;
     int step = 16384;
     int prefix = 400;
@@ -355,11 +379,12 @@ TEST(TestInputStreamWithOutputStream, TestOpenFirstAndAppend) {
     std::vector<char> buffer;
     buffer.resize(fileSize);
     FillBuffer(&buffer[0], buffer.size(), 0);
-    OutputStream os;
-    ASSERT_NO_THROW(os.open(fs, BASE_DIR"testOpenFirstAndAppend", Create, 0666, true, 1));
-    ASSERT_NO_THROW(os.append(&buffer[0], buffer.size()));
-    ASSERT_NO_THROW(os.sync());
-    ASSERT_NO_THROW(os.close());
+    hdfsFile wFile = nullptr;
+    ASSERT_NO_THROW(wFile = hdfsOpenFile(dfs, BASE_DIR"testOpenFirstAndAppend", O_CREAT, 2048, 1, 0));
+    ASSERT_TRUE(wFile != nullptr);
+    ASSERT_NO_THROW(hdfsWrite(dfs, wFile, &buffer[0], buffer.size()));
+    ASSERT_NO_THROW(hdfsSync(dfs, wFile));
+    ASSERT_NO_THROW(hdfsCloseFile(dfs, wFile););
     InputStream is;
     ASSERT_NO_THROW(is.open(fs, BASE_DIR"testOpenFirstAndAppend", true));
     ASSERT_NO_THROW(is.seek(prefix));
@@ -388,6 +413,14 @@ TEST(TestThroughput, Throughput) {
     FileSystem fs(conf);
     fs.connect();
     SetupTestEnv(fs, conf);
+
+    setenv("LIBHDFS3_CONF", "function-test.xml", 1);
+    struct hdfsBuilder * bld = hdfsNewBuilder();
+    assert(bld != nullptr);
+    hdfsBuilderSetNameNode(bld, "default");
+    hdfsFS dfs = hdfsBuilderConnect(bld);
+    assert(dfs != nullptr);
+
     const char * filename = BASE_DIR"TestThroughput";
     //const char * filename = "TestThroughput_SeekAhead";
     std::vector<char> buffer(64 * 1024);
@@ -397,20 +430,21 @@ TEST(TestThroughput, Throughput) {
     steady_clock::time_point start, stop;
 
     if (!fs.exist(filename)) {
-        OutputStream ous;
+        hdfsFile wFile = nullptr;
         start = steady_clock::now();
         EXPECT_NO_THROW(
-            DebugException(ous.open(fs, filename, Create | Overwrite /*| SyncBlock*/)));
+            DebugException(wFile = hdfsOpenFile(dfs, filename, O_WRONLY, 2048, 0, 0)));
+        ASSERT_TRUE(wFile != nullptr);
 
         while (todo > 0) {
             batch = todo < static_cast<int>(buffer.size()) ?
                     todo : buffer.size();
-            ASSERT_NO_THROW(DebugException(ous.append(&buffer[0], batch)));
+            ASSERT_NO_THROW(DebugException(hdfsWrite(dfs, wFile, &buffer[0], batch)));
             todo -= batch;
             offset += batch;
         }
 
-        ASSERT_NO_THROW(DebugException(ous.close()));
+        ASSERT_NO_THROW(DebugException(hdfsCloseFile(dfs, wFile)));
         steady_clock::time_point stop = steady_clock::now();
         elapsed = ToMilliSeconds(start, stop);
         LOG(INFO, "write file time %" PRId64 " ms, throughput is %lf mbyte/s",
@@ -444,6 +478,14 @@ TEST(TestThroughput, TestSeekAhead) {
     FileSystem fs(conf);
     fs.connect();
     SetupTestEnv(fs, conf);
+
+    setenv("LIBHDFS3_CONF", "function-test.xml", 1);
+    struct hdfsBuilder * bld = hdfsNewBuilder();
+    assert(bld != nullptr);
+    hdfsBuilderSetNameNode(bld, "default");
+    hdfsFS dfs = hdfsBuilderConnect(bld);
+    assert(dfs != nullptr);
+
     int64_t offset = 0;
     int64_t fileLength = 20 * 1024 * 1024 * 1024ll;
     int64_t todo = fileLength, batch, elapsed;
@@ -453,19 +495,20 @@ TEST(TestThroughput, TestSeekAhead) {
 
     if (!fs.exist(filename)) {
         std::vector<char> buffer(64 * 1024);
-        OutputStream ous;
+        hdfsFile wFile = nullptr;
         start = steady_clock::now();
         EXPECT_NO_THROW(
-            DebugException(ous.open(fs, filename, Create | Overwrite /*| SyncBlock*/)));
+            DebugException(wFile = hdfsOpenFile(dfs, filename, O_WRONLY, 2048, 0, 0)));
+        ASSERT_TRUE(wFile != nullptr);
 
         while (todo > 0) {
             batch = todo < static_cast<int>(buffer.size()) ?
                     todo : buffer.size();
-            ASSERT_NO_THROW(DebugException(ous.append(&buffer[0], batch)));
+            ASSERT_NO_THROW(DebugException(hdfsWrite(dfs, wFile, &buffer[0], batch)));
             todo -= batch;
         }
 
-        ASSERT_NO_THROW(DebugException(ous.close()));
+        ASSERT_NO_THROW(DebugException(hdfsCloseFile(dfs, wFile)));
         stop = steady_clock::now();
         elapsed = ToMilliSeconds(start, stop);
         LOG(INFO, "write file time %" PRId64 " ms, throughput is %lf mbyte/s",
@@ -493,4 +536,68 @@ TEST(TestThroughput, TestSeekAhead) {
     LOG(INFO, "read and seek file time %" PRId64 " ms, throughput is %lf mbyte/s",
         elapsed, CalculateThroughput(elapsed, fileLength));
     fs.deletePath(filename, true);
+}
+
+TEST(TestThroughput, TestSeek) {
+    setenv("LIBHDFS3_CONF", "function-test.xml", 1);
+    struct hdfsBuilder * bld = hdfsNewBuilder();
+    assert(bld != nullptr);
+    hdfsBuilderSetNameNode(bld, "default");
+    hdfsFS dfs = hdfsBuilderConnect(bld);
+    assert(dfs != nullptr);
+
+    const char * filename = BASE_DIR"TestThroughput_TestSeek";
+    hdfsFile wFile = hdfsOpenFile(dfs, filename, O_WRONLY, 2048, 0, 0);
+    ASSERT_TRUE(nullptr != wFile);
+
+    int64_t fileLength = 256 * 1024 * 1024ll;
+    int64_t todo = fileLength, batch;
+    int64_t written = 0;
+    int32_t mod = 31;
+    std::vector<char> writeBuffer(1024 * 1024);
+
+    while (todo > 0) {
+        int64_t val = (fileLength - todo) % mod;
+        for (int32_t i = 0; i < static_cast<int>(writeBuffer.size()); ++i) {
+            writeBuffer[i] = val % mod;
+            val = (val + 1) % mod;
+        }
+        batch = todo < static_cast<int>(writeBuffer.size()) ? todo : writeBuffer.size();
+        ASSERT_NO_THROW(DebugException(written = hdfsWrite(dfs, wFile, &writeBuffer[0], batch)));
+        todo -= written;
+    }
+    ASSERT_TRUE(0 == hdfsCloseFile(dfs, wFile));
+
+    srand((int)time(0));
+    steady_clock::time_point start, stop;
+    hdfsFile rFile = nullptr;
+    int32_t times = 100;
+    int64_t blockSize = 64 * 1024 * 1024;
+    int64_t totalElapsed = 0;
+
+    for(int32_t i = 0; i < times; ++i) {
+        int64_t pos = rand() % blockSize;
+        int64_t readSize = rand() % (blockSize - pos) + 1;
+        std::vector<char> readBuffer(readSize);
+
+        rFile = hdfsOpenFile(dfs, filename, O_RDONLY, 2048, 0, 0);
+        ASSERT_TRUE(nullptr != rFile);
+        int32_t read = hdfsRead(dfs, rFile, &readBuffer[0], 1);
+        ASSERT_TRUE(read == 1);
+
+        start = steady_clock::now();
+        int32_t seekResult = hdfsSeek(dfs, rFile, pos);
+        read = hdfsRead(dfs, rFile, &readBuffer[0], readBuffer.size());
+        stop = steady_clock::now();
+        totalElapsed += ToMilliSeconds(start, stop);
+
+        ASSERT_TRUE(readBuffer[0] == pos % mod);
+        ASSERT_TRUE(readBuffer[read - 1] == (pos + read - 1) % mod);
+        ASSERT_TRUE(0 == seekResult);
+        ASSERT_TRUE(0 == hdfsCloseFile(dfs, rFile));
+    }
+
+    double avgElapsed = static_cast<double>(totalElapsed) / times;
+    printf("seek and read file time %lf ms\n", avgElapsed);
+   
 }
