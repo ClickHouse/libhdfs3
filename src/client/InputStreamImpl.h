@@ -109,7 +109,7 @@ public:
      */
     std::string toString();
 
-private:
+protected:
     bool choseBestNode();
     bool isLocalNode();
     int32_t readInternal(char * buf, int32_t size);
@@ -126,7 +126,7 @@ private:
     void updateBlockInfos();
     void updateBlockInfos(bool need);
 
-private:
+protected:
     bool closed;
     bool localRead;
     bool readFromUnderConstructedBlock;
@@ -155,6 +155,8 @@ private:
     Hdfs::Mock::TestDatanodeStub * stub;
 #endif
 };
+
+unordered_set<std::string> BuildLocalAddrSet();
 
 }
 }

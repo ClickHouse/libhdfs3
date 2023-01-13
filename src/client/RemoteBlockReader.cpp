@@ -49,7 +49,7 @@ namespace Internal {
 
 RemoteBlockReader::RemoteBlockReader(shared_ptr<FileSystemInter> filesystem,
                                      const ExtendedBlock& eb,
-                                     DatanodeInfo& datanode,
+                                     DatanodeInfo datanode,
                                      PeerCache& peerCache, int64_t start,
                                      int64_t len, const Token& token,
                                      const char* clientName, bool verify,

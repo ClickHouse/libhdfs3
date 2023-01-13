@@ -177,7 +177,7 @@ TEST(TestRpcChannel, TestCheckResponse_InvalidResponse) {
     MockBufferedSocketReader * in = new MockBufferedSocketReader();
     EXPECT_CALL(*in, readBigEndianInt32(_)).Times(1).WillOnce(Return(100));
     EXPECT_CALL(*in, readVarint32(_)).Times(1).WillOnce(Return(0));
-    EXPECT_CALL(*in, readFully(_, _, _)).Times(1);
+    EXPECT_CALL(*in, readFully(_, _, _)).Times(0);
     EXPECT_CALL(client, isRunning()).Times(AnyNumber()).WillRepeatedly(
         Return(true));
     EXPECT_CALL(*sock, close()).Times(1);

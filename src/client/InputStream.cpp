@@ -30,6 +30,7 @@
 #include "InputStream.h"
 #include "InputStreamImpl.h"
 #include "InputStreamInter.h"
+#include "StripedInputStreamImpl.h"
 
 using namespace Hdfs::Internal;
 
@@ -40,7 +41,11 @@ InputStream::InputStream() {
 }
 
 InputStream::InputStream(shared_ptr<LocatedBlocks> lbs) {
-    impl = new Internal::InputStreamImpl(lbs);
+    if (lbs->getEcPolicy()) {
+        impl = new Internal::StripedInputStreamImpl(lbs);
+    } else {
+        impl = new Internal::InputStreamImpl(lbs);
+    }
 }
 
 InputStream::~InputStream() {
