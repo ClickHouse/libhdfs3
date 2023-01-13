@@ -44,7 +44,7 @@ namespace Hdfs {
 namespace Internal {
 
 RemoteBlockReader::RemoteBlockReader(const ExtendedBlock& eb,
-                                     DatanodeInfo& datanode,
+                                     DatanodeInfo datanode,
                                      PeerCache& peerCache, int64_t start,
                                      int64_t len, const Token& token,
                                      const char* clientName, bool verify,

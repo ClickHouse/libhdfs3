@@ -29,6 +29,7 @@
 #define _HDFS_LIBHDFS3_CLIENT_FILESTATUS_H_
 
 #include "Permission.h"
+#include "ECPolicy.h"
 
 #include <string>
 
@@ -149,6 +150,14 @@ public:
         return !symlink.empty();
     }
 
+    Internal::ECPolicy * getEcPolicy() const {
+        return ecPolicy;
+    }
+
+    void setEcPolicy(Internal::ECPolicy * ecPolicy) {
+        this->ecPolicy = ecPolicy;
+    }
+
 private:
     bool isdir;
     int64_t atime;
@@ -161,6 +170,8 @@ private:
     std::string owner;
     std::string path;
     std::string symlink;
+    bool isStriped = false;
+    Internal::ECPolicy * ecPolicy; // free by SystemECPolicies
 };
 
 }
