@@ -40,6 +40,7 @@
 
 #include <algorithm>
 #include <string>
+#include <iostream>
 #if WITH_KERBEROS
 #include <krb5/krb5.h>
 #endif
@@ -644,6 +645,100 @@ void FileSystem::getBlockLocations(const std::string & src, int64_t offset,
     }
 
     return impl->filesystem->getBlockLocations(src, offset, length, lbs);
+}
+
+/**
+ * Append to the end of the file.
+ *
+ * @param src path of the file being appended.
+ * @param flag create flag.
+ */
+std::pair<shared_ptr<LocatedBlock>, shared_ptr<FileStatus>> FileSystem::append(const std::string & src, const uint32_t & flag) {
+    if (!impl) {
+        THROW(HdfsIOException, "FileSystem: not connected.");
+    }
+
+    FileStatus fileInfo;
+    std::pair<shared_ptr<LocatedBlock>, shared_ptr<FileStatus>> lastBlockWithStatus;
+    lastBlockWithStatus = impl->filesystem->append(src, flag);
+
+    return lastBlockWithStatus;
+}
+
+/**
+ * Create a new file entry in the namespace.
+ *
+ * @param src path of the file being created.
+ * @param masked masked permission.
+ * @param flag indicates whether the file should be
+ *  overwritten if it already exists or create if it does not exist or append.
+ * @param createParent create missing parent directory if true
+ * @param replication block replication factor.
+ * @param blockSize maximum block size.
+ */
+FileStatus FileSystem::create(const std::string & src, const Permission & masked, int flag,
+                              bool createParent, short replication, int64_t blockSize) {
+    if (!impl) {
+        THROW(HdfsIOException, "FileSystem: not connected.");
+    }
+
+    return impl->filesystem->create(src, masked, flag, createParent, replication, blockSize);
+}
+
+/**
+ * To create or append a file.
+ * @param path the file path.
+ * @param flag creation flag, can be Create, Append or Create|Overwrite.
+ * @param permission create a new file with given permission.
+ * @param createParent if the parent does not exist, create it.
+ * @param replication create a file with given number of replication.
+ * @param blockSize  create a file with given block size.
+ *
+ * @return the FileStatus.
+ */
+std::pair<shared_ptr<LocatedBlock>, shared_ptr<FileStatus>>
+FileSystem::createOrAppend(const char * path, int flag, const Permission & permission,
+                           bool createParent, int replication, int64_t blockSize) {
+    if (NULL == path || 0 == strlen(path) || replication < 0 || blockSize < 0) {
+        THROW(InvalidParameter, "Invalid parameter.");
+    }
+
+    if (!(flag == Create || flag == (Create | SyncBlock) || flag == Overwrite
+          || flag == (Overwrite | SyncBlock) || flag == Append
+          || flag == (Append | SyncBlock) || flag == (Create | Overwrite)
+          || flag == (Create | Overwrite | SyncBlock)
+          || flag == (Create | Append)
+          || flag == (Create | Append | SyncBlock))) {
+        THROW(InvalidParameter, "Invalid flag.");
+    }
+
+    try {
+        try {
+            if (flag & Append) {
+                FileStatus fileStatus = getFileStatus(path);
+                std::pair<shared_ptr<LocatedBlock>, shared_ptr<FileStatus>> pair;
+                if (fileStatus.getEcPolicy()) {
+                    flag |= NewBlock;
+                }
+                pair = append(path, flag);
+                return pair;
+            }
+        } catch (const FileNotFoundException & e) {
+            if (!(flag & Create)) {
+                throw;
+            }
+        }
+
+        assert((flag & Create) || (flag & Overwrite));
+
+        FileStatus status = create(path, permission, flag, createParent, replication, blockSize);
+        std::pair<shared_ptr<LocatedBlock>, shared_ptr<FileStatus>> retval;
+        retval.first = shared_ptr<LocatedBlock>(nullptr);
+        retval.second = shared_ptr<FileStatus>(new FileStatus(status));
+        return retval;
+    } catch (...) {
+        throw;
+    }
 }
 
 }

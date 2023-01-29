@@ -46,6 +46,8 @@
 #include <string>
 #include <libxml/uri.h>
 
+using namespace Hdfs::Internal;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -658,7 +660,7 @@ hdfsFile hdfsOpenFile(hdfsFS fs, const char * path, int flags, int bufferSize,
 
     try {
         file = new HdfsFileInternalWrapper();
-        Hdfs::Internal::SessionConfig conf(*DefaultConfig().getConfig());
+        Hdfs::Internal::SessionConfig conf(fs->getFilesystem().getConf());
 
         if ((flags & O_CREAT) || (flags & O_APPEND) || (flags & O_WRONLY)) {
             int internalFlags = 0;
@@ -677,11 +679,39 @@ hdfsFile hdfsOpenFile(hdfsFS fs, const char * path, int flags, int bufferSize,
                 internalFlags |= Hdfs::SyncBlock;
             }
 
+            // create or append file
+            blocksize = (blocksize == 0) ? conf.getDefaultBlockSize() : blocksize;
+            replication = (replication == 0) ? conf.getDefaultReplica() : replication;
+            int chunkSize = conf.getDefaultChunkSize();
+            int packetSize = conf.getDefaultPacketSize();
+            if (packetSize < chunkSize) {
+                THROW(Hdfs::InvalidParameter,
+                      "OutputStreamImpl: packet size %d is less than the chunk size %d.",
+                      packetSize, chunkSize);
+            }
+
+            if (0 != blocksize % chunkSize) {
+                THROW(Hdfs::InvalidParameter,
+                      "OutputStreamImpl: block size %ld is not the multiply of chunk size %d.",
+                      blocksize, chunkSize);
+            }
+
+            std::pair<shared_ptr<LocatedBlock>, shared_ptr<Hdfs::FileStatus>> pair = fs->getFilesystem()
+                .createOrAppend(path, internalFlags, 0777, false, replication, blocksize);
+            shared_ptr<Hdfs::FileStatus> status = pair.second;
+            ECPolicy * ecPolicy = status->getEcPolicy();
             file->setInput(false);
-            os = new OutputStream;
-            os->open(fs->getFilesystem(), path, internalFlags, 0777, false, replication,
-                     blocksize);
-            file->setStream(os);
+            if (status->getEcPolicy()) {
+                os = new OutputStream(ecPolicy);
+                os->open(fs->getFilesystem(), path, pair, internalFlags, 0777, false, replication,
+                         blocksize, status->getFileId());
+                file->setStream(os);
+            } else {
+                os = new OutputStream;
+                os->open(fs->getFilesystem(), path, pair, internalFlags, 0777, false, replication,
+                         blocksize, status->getFileId());
+                file->setStream(os);
+            }
         } else {
             // get blocklocations before open
             int64_t prefetchSize = conf.getDefaultBlockSize() * conf.getPrefetchSize();

@@ -646,42 +646,44 @@ void FileSystemImpl::getBlockLocations(const std::string & src, int64_t offset,
     nn->getBlockLocations(src, offset, length, lbs);
 }
 
-void FileSystemImpl::create(const std::string & src, const Permission & masked,
-                            int flag, bool createParent, short replication, int64_t blockSize) {
+FileStatus FileSystemImpl::create(const std::string & src, const Permission & masked,
+                                  int flag, bool createParent, short replication, int64_t blockSize) {
     if (!nn) {
         THROW(HdfsIOException, "FileSystemImpl: not connected.");
     }
 
-    nn->create(src, masked, clientName, flag, createParent, replication,
-               blockSize);
+    return nn->create(src, masked, clientName, flag, createParent, replication,
+                      blockSize);
 }
 
 std::pair<shared_ptr<LocatedBlock>, shared_ptr<FileStatus> >
-FileSystemImpl::append(const std::string& src) {
+FileSystemImpl::append(const std::string& src, const uint32_t& flag) {
     if (!nn) {
         THROW(HdfsIOException, "FileSystemImpl: not connected.");
     }
 
-    return nn->append(src, clientName);
+    return nn->append(src, clientName, flag);
 }
 
 void FileSystemImpl::abandonBlock(const ExtendedBlock & b,
-                                  const std::string & src) {
+                                  const std::string & src,
+                                  int64_t fileId) {
     if (!nn) {
         THROW(HdfsIOException, "FileSystemImpl: not connected.");
     }
 
-    nn->abandonBlock(b, src, clientName);
+    nn->abandonBlock(b, src, clientName, fileId);
 }
 
 shared_ptr<LocatedBlock> FileSystemImpl::addBlock(const std::string & src,
         const ExtendedBlock * previous,
-        const std::vector<DatanodeInfo> & excludeNodes) {
+        const std::vector<DatanodeInfo> & excludeNodes,
+        int64_t fileId) {
     if (!nn) {
         THROW(HdfsIOException, "FileSystemImpl: not connected.");
     }
 
-    return nn->addBlock(src, clientName, previous, excludeNodes);
+    return nn->addBlock(src, clientName, previous, excludeNodes, fileId);
 }
 
 shared_ptr<LocatedBlock> FileSystemImpl::getAdditionalDatanode(
@@ -698,12 +700,13 @@ shared_ptr<LocatedBlock> FileSystemImpl::getAdditionalDatanode(
 }
 
 bool FileSystemImpl::complete(const std::string & src,
-                              const ExtendedBlock * last) {
+                              const ExtendedBlock * last,
+                              int64_t fileId) {
     if (!nn) {
         THROW(HdfsIOException, "FileSystemImpl: not connected.");
     }
 
-    return nn->complete(src, clientName, last);
+    return nn->complete(src, clientName, last, fileId);
 }
 
 /*void FileSystemImpl::reportBadBlocks(const std::vector<LocatedBlock> & blocks) {

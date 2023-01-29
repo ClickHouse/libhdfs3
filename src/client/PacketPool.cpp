@@ -38,6 +38,7 @@ PacketPool::PacketPool(int size) :
 
 shared_ptr<Packet> PacketPool::getPacket(int pktSize, int chunksPerPkt,
         int64_t offsetInBlock, int64_t seqno, int checksumSize) {
+    lock_guard < mutex > lock(mut);
     if (packets.empty()) {
         return shared_ptr<Packet>(
                    new Packet(pktSize, chunksPerPkt, offsetInBlock, seqno,
@@ -52,6 +53,7 @@ shared_ptr<Packet> PacketPool::getPacket(int pktSize, int chunksPerPkt,
 }
 
 void PacketPool::relesePacket(shared_ptr<Packet> packet) {
+    lock_guard < mutex > lock(mut);
     if (static_cast<int>(packets.size()) >= maxSize) {
         return;
     }

@@ -60,15 +60,17 @@ public:
      * To create or append a file.
      * @param fs hdfs file system.
      * @param path the file path.
+     * @param pair the result of create or append.
      * @param flag creation flag, can be Create, Append or Create|Overwrite.
      * @param permission create a new file with given permission.
      * @param createParent if the parent does not exist, create it.
      * @param replication create a file with given number of replication.
      * @param blockSize  create a file with given block size.
      */
-    void open(shared_ptr<FileSystemInter> fs, const char * path, int flag,
-              const Permission & permission, bool createParent, int replication,
-              int64_t blockSize);
+    void open(shared_ptr<FileSystemInter> fs, const char * path,
+              std::pair<shared_ptr<LocatedBlock>, shared_ptr<Hdfs::FileStatus>> & pair,
+              int flag, const Permission & permission, bool createParent, int replication,
+              int64_t blockSize, int64_t fileId);
 
     /**
      * To append data to file.
@@ -110,7 +112,7 @@ public:
      */
     void setError(const exception_ptr & error);
 
-private:
+protected:
     void appendChunkToPacket(const char * buf, int size);
     void appendInternal(const char * buf, int64_t size);
     void checkStatus();
@@ -119,15 +121,16 @@ private:
     void computePacketChunkSize();
     void flushInternal(bool needSync);
     //void heartBeatSenderRoutine();
-    void initAppend();
-    void openInternal(shared_ptr<FileSystemInter> fs, const char * path, int flag,
-                      const Permission & permission, bool createParent, int replication,
-                      int64_t blockSize);
+    void initAppend(std::pair<shared_ptr<LocatedBlock>, shared_ptr<FileStatus>> & pair);
+    void openInternal(shared_ptr<FileSystemInter> fs, const char * path,
+                      std::pair<shared_ptr<LocatedBlock>, shared_ptr<Hdfs::FileStatus>> & pair,
+                      int flag, const Permission & permission, bool createParent, int replication,
+                      int64_t blockSize, int64_t fileId);
     void reset();
     void sendPacket(shared_ptr<Packet> packet);
     void setupPipeline();
 
-private:
+    PacketPool packets;
     //atomic<bool> heartBeatStop;
     bool closed;
     bool isAppend;
@@ -148,7 +151,6 @@ private:
     int64_t lastFlushed; //the position last flushed
     int64_t nextSeqNo;
     mutex mut;
-    PacketPool packets;
     shared_ptr<Checksum> checksum;
     shared_ptr<FileSystemInter> filesystem;
     shared_ptr<LocatedBlock> lastBlock;
@@ -156,6 +158,7 @@ private:
     shared_ptr<Pipeline> pipeline;
     shared_ptr<SessionConfig> conf;
     std::string path;
+    int64_t fileId;
     std::vector<char> buffer;
     steady_clock::time_point lastSend;
     //thread heartBeatSender;
