@@ -34,18 +34,35 @@
 #include "FileSystemInter.h"
 #include "DataTransferProtocolSender.h"
 #include "datatransfer.pb.h"
+#include "Faultjector.h"
 
 #include <inttypes.h>
 
 namespace Hdfs {
 namespace Internal {
 
+PipelineImpl::PipelineImpl(const char * path, const SessionConfig & conf,
+                           shared_ptr<FileSystemInter> filesystem, int checksumType, int chunkSize,
+                           int replication, int64_t bytesSent, PacketPool & packetPool,
+                           shared_ptr<LocatedBlock> lastBlock, int64_t fileId) :
+    checksumType(checksumType), chunkSize(chunkSize), errorIndex(-1), replication(replication), bytesAcked(
+    bytesSent), bytesSent(bytesSent), packetPool(packetPool), filesystem(filesystem), lastBlock(lastBlock), path(
+    path), fileId(fileId) {
+    canAddDatanode = conf.canAddDatanode();
+    blockWriteRetry = conf.getBlockWriteRetry();
+    connectTimeout = conf.getOutputConnTimeout();
+    readTimeout = conf.getOutputReadTimeout();
+    writeTimeout = conf.getOutputWriteTimeout();
+    clientName = filesystem->getClientName();
+}
+
 PipelineImpl::PipelineImpl(bool append, const char * path, const SessionConfig & conf,
                            shared_ptr<FileSystemInter> filesystem, int checksumType, int chunkSize,
-                           int replication, int64_t bytesSent, PacketPool & packetPool, shared_ptr<LocatedBlock> lastBlock) :
+                           int replication, int64_t bytesSent, PacketPool & packetPool,
+                           shared_ptr<LocatedBlock> lastBlock, int64_t fileId) :
     checksumType(checksumType), chunkSize(chunkSize), errorIndex(-1), replication(replication), bytesAcked(
         bytesSent), bytesSent(bytesSent), packetPool(packetPool), filesystem(filesystem), lastBlock(lastBlock), path(
-            path) {
+            path), fileId(fileId) {
     canAddDatanode = conf.canAddDatanode();
     blockWriteRetry = conf.getBlockWriteRetry();
     connectTimeout = conf.getOutputConnTimeout();
@@ -330,7 +347,7 @@ void PipelineImpl::locateNextBlock(
     while (true) {
         try {
             lastBlock = filesystem->addBlock(path, lastBlock.get(),
-                                             excludedNodes);
+                                             excludedNodes, fileId);
             assert(lastBlock);
             return;
         } catch (const NotReplicatedYetException & e) {
@@ -441,7 +458,7 @@ void PipelineImpl::buildForNewBlock() {
         LOG(INFO, "Abandoning block: %s for file %s.", lastBlock->toString().c_str(), path.c_str());
 
         try {
-            filesystem->abandonBlock(*lastBlock, path);
+            filesystem->abandonBlock(*lastBlock, path, fileId);
         } catch (const HdfsException & e) {
             LOG(LOG_ERROR,
                 "Failed to abandon useless block %s for file %s.\n%s",
@@ -623,6 +640,12 @@ void PipelineImpl::send(shared_ptr<Packet> packet) {
                 resend();
             } else {
                 assert(sock);
+                // test bad node
+                if (FaultInjector::get().testBadWriterAtKillPos(bytesSent)) {
+                    LOG(INFO, "testBadWriterAtKillPos, bytesSent=%ld, bytesAcked=%ld",
+                        bytesSent, bytesAcked);
+                    THROW(HdfsIOException, "bad RemoteBlockWriter");
+                }
                 sock->writeFully(buffer.getBuffer(), buffer.getSize(),
                                  writeTimeout);
                 int64_t tmp = packet->getLastByteOffsetBlock();
@@ -637,6 +660,10 @@ void PipelineImpl::send(shared_ptr<Packet> packet) {
             }
 
             sock.reset();
+        }
+
+        if (lastBlock->isStriped()) {
+            THROW(HdfsIOException, "ec block send failed");
         }
 
         buildForAppendOrRecovery(true);
@@ -730,6 +757,7 @@ void PipelineImpl::flush() {
 }
 
 void PipelineImpl::waitForAcks(bool force) {
+    lock_guard < mutex > lock(mut);
     bool failover = false;
 
     while (!packets.empty()) {
@@ -745,6 +773,13 @@ void PipelineImpl::waitForAcks(bool force) {
                 resend();
             }
 
+            // test bad node
+            if (FaultInjector::get().testBadWriterAtAckPos(bytesAcked)) {
+                LOG(INFO, "testBadWriterAtAckPos, bytesSent=%ld, bytesAcked=%ld",
+                    bytesSent, bytesAcked);
+                THROW(HdfsIOException, "bad RemoteBlockWriter");
+            }
+
             checkResponse(true);
             failover = false;
         } catch (const HdfsIOException & e) {
@@ -754,8 +789,8 @@ void PipelineImpl::waitForAcks(bool force) {
 
             std::string buffer;
             LOG(LOG_ERROR,
-                "Failed to flush pipeline on datanode %s for block %s file %s.\n%s",
-                nodes[errorIndex].formatAddress().c_str(), lastBlock->toString().c_str(),
+                "Failed to flush pipeline(index=%d) on datanode %s for block %s file %s.\n%s",
+                errorIndex, nodes[errorIndex].formatAddress().c_str(), lastBlock->toString().c_str(),
                 path.c_str(), GetExceptionDetail(e, buffer));
             LOG(INFO, "Rebuild pipeline to flush for block %s file %s.", lastBlock->toString().c_str(), path.c_str());
             sock.reset();
@@ -763,6 +798,10 @@ void PipelineImpl::waitForAcks(bool force) {
         }
 
         if (failover) {
+            if (lastBlock->isStriped()) {
+                failover = false;
+                THROW(HdfsIOException, "ec block wait ack failed");
+            }
             buildForAppendOrRecovery(true);
 
             if (stage == PIPELINE_CLOSE) {
@@ -774,7 +813,21 @@ void PipelineImpl::waitForAcks(bool force) {
     }
 }
 
+int64_t PipelineImpl::getBytesSent() {
+    return bytesSent;
+}
+
+bool PipelineImpl::isClosed() {
+    return stage == PIPELINE_CLOSE;
+}
+
 shared_ptr<LocatedBlock> PipelineImpl::close(shared_ptr<Packet> lastPacket) {
+    // test bad node
+    if (FaultInjector::get().testPipelineClose()) {
+        LOG(INFO, "testPipelineClose, bytesSent=%ld, bytesAcked=%ld",
+            bytesSent, bytesAcked);
+        THROW(HdfsIOException, "bad RemoteBlockWriter");
+    }
     waitForAcks(true);
     lastPacket->setLastPacketInBlock(true);
     stage = PIPELINE_CLOSE;
@@ -786,6 +839,109 @@ shared_ptr<LocatedBlock> PipelineImpl::close(shared_ptr<Packet> lastPacket) {
         path.c_str(), lastBlock->toString().c_str(),
         lastBlock->getNumBytes());
     return lastBlock;
+}
+
+StripedPipelineImpl::StripedPipelineImpl(const char * path, const SessionConfig & conf,
+                    shared_ptr<FileSystemInter> filesystem, int checksumType, int chunkSize,
+                    int replication, int64_t bytesSent, PacketPool & packetPool,
+                    shared_ptr<LocatedBlock> lastBlock, int64_t fileId) :
+                    PipelineImpl(path, conf, filesystem, checksumType, chunkSize, replication,
+                                 bytesSent, packetPool, lastBlock, fileId) {
+    LOG(DEBUG2, "create pipeline for file %s to write to a new block", path);
+    stage = PIPELINE_SETUP_CREATE;
+    buildForNewBlock(lastBlock);
+    stage = DATA_STREAMING;
+}
+
+void StripedPipelineImpl::buildForNewBlock(shared_ptr<LocatedBlock> block) {
+    int retryAllocNewBlock = 0, retry = blockWriteRetry;
+    std::string buffer;
+
+    do {
+        errorIndex = -1;
+        lastBlock = block;
+
+        try {
+            lastBlock->setNumBytes(0);
+            nodes = lastBlock->getLocations();
+            storageIDs = lastBlock->getStorageIDs();
+        } catch (const HdfsRpcException &e) {
+            const char *lastBlockName = lastBlock ? lastBlock->toString().c_str() : "Null";
+            LOG(LOG_ERROR,
+                "Failed to allocate a new empty block for file %s, last block %s.\n%s",
+                path.c_str(), lastBlockName, GetExceptionDetail(e, buffer));
+
+            if (retryAllocNewBlock > blockWriteRetry) {
+                throw;
+            }
+
+            LOG(INFO, "Retry to allocate a new empty block for file %s, last block %s.",
+                path.c_str(), lastBlockName);
+            ++retryAllocNewBlock;
+            continue;
+        } catch (const HdfsException &e) {
+            const char *lastBlockName = lastBlock ? lastBlock->toString().c_str() : "Null";
+            LOG(LOG_ERROR,
+                "Failed to allocate a new empty block for file %s, last block %s.\n%s",
+                path.c_str(), lastBlockName, GetExceptionDetail(e, buffer));
+            throw;
+        }
+
+        retryAllocNewBlock = 0;
+        if (nodes.empty()) {
+            THROW(HdfsIOException,
+                  "No datanode is available to create a pipeline for block %s file %s.",
+                  lastBlock->toString().c_str(), path.c_str());
+        }
+
+        try {
+            // test bad node
+            if (FaultInjector::get().testCreateOutputStreamFailed()) {
+                LOG(INFO, "testCreateOutputStreamFailed, bytesSent=%ld, bytesAcked=%ld",
+                    bytesSent, bytesAcked);
+                THROW(HdfsIOException, "bad RemoteBlockWriter");
+            }
+            createBlockOutputStream(lastBlock->getToken(), 0, false);
+            break;  //break on success
+        } catch (const HdfsInvalidBlockToken &e) {
+            LOG(LOG_ERROR,
+                "Failed to setup the pipeline for new block %s file %s.\n%s",
+                lastBlock->toString().c_str(), path.c_str(), GetExceptionDetail(e, buffer));
+        } catch (const HdfsTimeoutException &e) {
+            LOG(LOG_ERROR,
+                "Failed to setup the pipeline for new block %s file %s.\n%s",
+                lastBlock->toString().c_str(), path.c_str(), GetExceptionDetail(e, buffer));
+        } catch (const HdfsIOException &e) {
+            LOG(LOG_ERROR,
+                "Failed to setup the pipeline for new block %s file %s.\n%s",
+                lastBlock->toString().c_str(), path.c_str(), GetExceptionDetail(e, buffer));
+        }
+
+        LOG(INFO, "Abandoning block: %s for file %s.", lastBlock->toString().c_str(), path.c_str());
+
+        try {
+            filesystem->abandonBlock(*lastBlock, path, fileId);
+        } catch (const HdfsException &e) {
+            LOG(LOG_ERROR,
+                "Failed to abandon useless block %s for file %s.\n%s",
+                lastBlock->toString().c_str(), path.c_str(), GetExceptionDetail(e, buffer));
+            throw;
+        }
+
+        if (errorIndex >= 0) {
+            LOG(INFO, "Excluding invalid datanode: %s for block %s for file %s",
+                nodes[errorIndex].formatAddress().c_str(), lastBlock->toString().c_str(), path.c_str());
+        } else {
+            /*
+             * we don't known what happened, no datanode is reported failure, reduce retry count in case of infinite loop.
+             */
+            --retry;
+        }
+
+        if (lastBlock->isStriped() && errorIndex >= 0) {
+            THROW(HdfsIOException, "build for ec newBlock failed");
+        }
+    } while (retry);
 }
 
 }

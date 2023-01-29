@@ -41,6 +41,9 @@ namespace Internal {
  */
 class DatanodeInfo {
 public:
+    DatanodeInfo() : xferPort(0), infoPort(0), ipcPort(0),
+        ipAddr("null"), hostName("null"), datanodeId("null"), location("null") {}
+
     const std::string & getHostName() const {
         return hostName;
     }

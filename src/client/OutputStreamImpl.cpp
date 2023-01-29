@@ -48,10 +48,10 @@ namespace Hdfs {
 namespace Internal {
 
 OutputStreamImpl::OutputStreamImpl() :
-/*heartBeatStop(true),*/ closed(true), isAppend(false), syncBlock(false), checksumSize(0), chunkSize(
+/*heartBeatStop(true),*/ packets(0), closed(true), isAppend(false), syncBlock(false), checksumSize(0), chunkSize(
         0), chunksPerPacket(0), closeTimeout(0), heartBeatInterval(0), packetSize(0), position(
             0), replication(0), blockSize(0), bytesWritten(0), cursor(0), lastFlushed(
-                0), nextSeqNo(0), packets(0) {
+                0), nextSeqNo(0) {
 #if defined(__SSE4_2__) && defined(__LP64__)
     checksum = std::make_shared<IntelAsmCrc32c>();
 #else
@@ -105,15 +105,17 @@ void OutputStreamImpl::setError(const exception_ptr & error) {
  * To create or append a file.
  * @param fs hdfs file system.
  * @param path the file path.
+ * @param pair the result of create or append.
  * @param flag creation flag, can be Create, Append or Create|Overwrite.
  * @param permission create a new file with given permission.
  * @param createParent if the parent does not exist, create it.
  * @param replication create a file with given number of replication.
  * @param blockSize  create a file with given block size.
  */
-void OutputStreamImpl::open(shared_ptr<FileSystemInter> fs, const char * path, int flag,
-                            const Permission & permission, bool createParent, int replication,
-                            int64_t blockSize) {
+void OutputStreamImpl::open(shared_ptr<FileSystemInter> fs, const char * path,
+                            std::pair<shared_ptr<LocatedBlock>, shared_ptr<Hdfs::FileStatus>> & pair,
+                            int flag, const Permission & permission, bool createParent, int replication,
+                            int64_t blockSize, int64_t fileId) {
     if (NULL == path || 0 == strlen(path) || replication < 0 || blockSize < 0) {
         THROW(InvalidParameter, "Invalid parameter.");
     }
@@ -128,8 +130,28 @@ void OutputStreamImpl::open(shared_ptr<FileSystemInter> fs, const char * path, i
     }
 
     try {
-        openInternal(fs, path, flag, permission, createParent, replication,
-                     blockSize);
+        openInternal(fs, path, pair, flag, permission, createParent, replication,
+                     blockSize, fileId);
+
+        do {
+            try {
+                //append
+                if (flag & Append) {
+                    initAppend(pair);
+                    LeaseRenewer::GetLeaseRenewer().StartRenew(filesystem);
+                    break;
+                }
+            } catch (const FileNotFoundException & e) {
+                if (!(flag & Create)) {
+                    throw;
+                }
+            }
+            //create
+            assert((flag & Create) || (flag & Overwrite));
+            closed = false;
+            computePacketChunkSize();
+            LeaseRenewer::GetLeaseRenewer().StartRenew(filesystem);
+        } while(0);
     } catch (...) {
         reset();
         throw;
@@ -147,10 +169,9 @@ void OutputStreamImpl::computePacketChunkSize() {
     buffer.resize(chunkSize);
 }
 
-void OutputStreamImpl::initAppend() {
+void OutputStreamImpl::initAppend(
+        std::pair<shared_ptr<LocatedBlock>, shared_ptr<FileStatus>> & lastBlockWithStatus) {
     FileStatus fileInfo;
-    std::pair<shared_ptr<LocatedBlock>, shared_ptr<FileStatus> > lastBlockWithStatus;
-    lastBlockWithStatus = filesystem->append(this->path);
     lastBlock = lastBlockWithStatus.first;
 
     if (lastBlockWithStatus.second) {
@@ -209,10 +230,12 @@ void OutputStreamImpl::initAppend() {
 }
 
 void OutputStreamImpl::openInternal(shared_ptr<FileSystemInter> fs, const char * path,
+                                    std::pair<shared_ptr<LocatedBlock>, shared_ptr<Hdfs::FileStatus>> & pair,
                                     int flag, const Permission & permission, bool createParent,
-                                    int replication, int64_t blockSize) {
+                                    int replication, int64_t blockSize, int64_t fileId) {
     filesystem = fs;
     this->path = fs->getStandardPath(path);
+    this->fileId = fileId;
     this->replication = replication;
     this->blockSize = blockSize;
     syncBlock = flag & SyncBlock;
@@ -248,25 +271,6 @@ void OutputStreamImpl::openInternal(shared_ptr<FileSystemInter> fs, const char *
               "OutputStreamImpl: block size %" PRId64 " is not the multiply of chunk size %d.",
               this->blockSize, chunkSize);
     }
-
-    try {
-        if (flag & Append) {
-            initAppend();
-            LeaseRenewer::GetLeaseRenewer().StartRenew(filesystem);
-            return;
-        }
-    } catch (const FileNotFoundException & e) {
-        if (!(flag & Create)) {
-            throw;
-        }
-    }
-
-    assert((flag & Create) || (flag & Overwrite));
-    fs->create(this->path, permission, flag, createParent, this->replication,
-               this->blockSize);
-    closed = false;
-    computePacketChunkSize();
-    LeaseRenewer::GetLeaseRenewer().StartRenew(filesystem);
 }
 
 /**
@@ -371,7 +375,7 @@ void OutputStreamImpl::setupPipeline() {
 #else
     pipeline = shared_ptr<Pipeline>(new PipelineImpl(isAppend, path.c_str(), *conf, filesystem,
                                     CHECKSUM_TYPE_CRC32C, conf->getDefaultChunkSize(), replication,
-                                    currentPacket->getOffsetInBlock(), packets, lastBlock));
+                                    currentPacket->getOffsetInBlock(), packets, lastBlock, fileId));
 #endif
     lastSend = steady_clock::now();
     /*
@@ -466,7 +470,7 @@ void OutputStreamImpl::completeFile(bool throwError) {
     while (true) {
         try {
             bool success;
-            success = filesystem->complete(path, lastBlock.get());
+            success = filesystem->complete(path, lastBlock.get(), fileId);
 
             if (success) {
                 return;

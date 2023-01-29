@@ -90,24 +90,24 @@ void StripedBlockUtil::divideOneStripe(ECPolicy* ecPolicy,
     int bufOffset =
         (int) (rangeStartInBlockGroup % ((long) cellSize * dataBlkNum));
     for (int i = 0; i < (int)cells.size(); i++) {
-        StripingCell & cell = cells[i];
-        long cellStart = cell.idxInInternalBlk * cellSize + cell.offset;
-        long cellEnd = cellStart + cell.size - 1;
-        for (int j = 0; j < (int)stripes.size(); j++) {
-            AlignedStripe * s = stripes[j];
-            long stripeEnd = s->getOffsetInBlock() + s->getSpanInBlock() - 1;
-            long overlapStart = std::max(cellStart, s->getOffsetInBlock());
-            long overlapEnd = std::min(cellEnd, stripeEnd);
-            int overLapLen = (int) (overlapEnd - overlapStart + 1);
-            if (overLapLen > 0) {
-                Preconditions::checkState(s->chunks[cell.idxInStripe] == NULL);
-                int pos = (int) (bufOffset + overlapStart - cellStart);
-                buf->position(pos);
-                buf->limit(pos + overLapLen);
-                s->chunks[cell.idxInStripe] = new StripingChunk(shared_ptr<ByteBuffer>(buf->slice()));
-            }
+      StripingCell & cell = cells[i];
+      long cellStart = cell.idxInInternalBlk * cellSize + cell.offset;
+      long cellEnd = cellStart + cell.size - 1;
+      for (int j = 0; j < (int)stripes.size(); j++) {
+        AlignedStripe * s = stripes[j];
+        long stripeEnd = s->getOffsetInBlock() + s->getSpanInBlock() - 1;
+        long overlapStart = std::max(cellStart, s->getOffsetInBlock());
+        long overlapEnd = std::min(cellEnd, stripeEnd);
+        int overLapLen = (int) (overlapEnd - overlapStart + 1);
+        if (overLapLen > 0) {
+            Preconditions::checkState(s->chunks[cell.idxInStripe] == NULL);
+            int pos = (int) (bufOffset + overlapStart - cellStart);
+            buf->position(pos);
+            buf->limit(pos + overLapLen);
+            s->chunks[cell.idxInStripe] = new StripingChunk(shared_ptr<ByteBuffer>(buf->slice()));
         }
-        bufOffset += cell.size;
+      }
+      bufOffset += cell.size;
     }
 
     // Step 5: prepare ALLZERO blocks

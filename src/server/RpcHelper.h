@@ -41,6 +41,7 @@
 #include "StackPrinter.h"
 #include "client/ECPolicy.h"
 #include "client/SystemECPolicies.h"
+#include "LocatedStripedBlock.h"
 
 #include <algorithm>
 #include <cassert>
@@ -250,6 +251,7 @@ static inline void Convert(const std::string & src, FileStatus & fs,
     fs.setSymlink(proto.symlink().c_str());
     fs.setPermission(Permission(proto.permission().perm()));
     fs.setIsdir(proto.filetype() == HdfsFileStatusProto::IS_DIR);
+    fs.setFileId(proto.fileid());
     if (proto.has_ecpolicy()) {
         Convert(fs, proto.ecpolicy());
     }

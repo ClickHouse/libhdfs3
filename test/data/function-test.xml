@@ -2,7 +2,7 @@
 
 	<property>
 		<name>dfs.default.uri</name>
-		<value>hdfs://sg-hadoop-test1.bigdata.bigo.inner:8888</value>
+		<value>hdfs://localhost:9000</value>
 	</property>
 
 	<property>

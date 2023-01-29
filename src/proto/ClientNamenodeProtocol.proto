@@ -84,6 +84,7 @@ message CreateResponseProto {
 message AppendRequestProto {
   required string src = 1;
   required string clientName = 2;
+  optional uint32 flag = 3; // bits set using CreateFlag
 }
 
 message AppendResponseProto {
@@ -121,6 +122,7 @@ message AbandonBlockRequestProto {
   required ExtendedBlockProto b = 1;
   required string src = 2;
   required string holder = 3;
+  optional uint64 fileId = 4 [default = 0];
 }
 
 message AbandonBlockResponseProto { // void response
