@@ -31,7 +31,6 @@
 #include "client/FileSystem.h"
 #include "client/FileSystemImpl.h"
 #include "client/FileSystemInter.h"
-#include "client/OutputStream.h"
 #include "client/OutputStreamImpl.h"
 #include "client/Packet.h"
 #include "client/Pipeline.h"
@@ -40,8 +39,6 @@
 #include "MockLeaseRenewer.h"
 #include "MockPipeline.h"
 #include "NamenodeStub.h"
-#include "server/ExtendedBlock.h"
-#include "TestDatanodeStub.h"
 #include "TestUtil.h"
 #include "Thread.h"
 #include "XmlConfig.h"
@@ -82,6 +79,22 @@ public:
     MOCK_METHOD0(getNamenode, MockNamenode * ());
 };
 
+static void wrappedOpen(OutputStreamImpl & ous, shared_ptr<FileSystemInter> fs, const char * path,
+                        int flag = Create, const Permission permission = Permission(0644),
+                        bool createParent = false, int replication = 0, int64_t blockSize = 0) {
+    std::pair<shared_ptr<LocatedBlock>, shared_ptr<Hdfs::FileStatus>> pair;
+    if (flag & Append) {
+        pair = fs->append(path, flag);
+    } else {
+        FileStatus status = fs->create(path, permission, flag, createParent, replication, blockSize);
+        std::pair<shared_ptr<LocatedBlock>, shared_ptr<FileStatus>> retval;
+        pair.first = shared_ptr<LocatedBlock>(nullptr);
+        pair.second = shared_ptr<FileStatus>(new FileStatus(status));
+    }
+    shared_ptr<Hdfs::FileStatus> status = pair.second;
+    ous.open(fs, path, pair, flag, 0777, false, replication, blockSize, 0);
+}
+
 static void LeaseRenew(int flag) {
     Config conf;
     FileStatus fileinfo;
@@ -100,16 +113,17 @@ static void LeaseRenew(int flag) {
     OutputStreamImpl leaseous;
 
     if (flag & Append) {
-        EXPECT_CALL(*myfs, append(_)).Times(1).WillOnce(Return(lastBlockWithStatus));
+        EXPECT_CALL(*myfs, append(_,_)).Times(1);
     } else {
         EXPECT_CALL(*myfs, create(_, _, _, _, _, _)).Times(1);
     }
 
-    EXPECT_CALL(*myfs, complete(_, _)).Times(1).WillOnce(Return(true));
+    EXPECT_CALL(*myfs, complete(_, _, _)).Times(1).WillOnce(Return(true));
     EXPECT_CALL(GetMockLeaseRenewer(), StartRenew(_)).Times(1);
     EXPECT_CALL(GetMockLeaseRenewer(), StopRenew(_)).Times(1);
     EXPECT_CALL(*myfs, getStandardPath(_)).Times(1);
-    EXPECT_NO_THROW(DebugException(leaseous.open(myfs, BASE_DIR"testrenewlease", flag, 0644, true, 0, 2048)));
+
+    EXPECT_NO_THROW(DebugException(wrappedOpen(leaseous, myfs, BASE_DIR"testrenewlease", flag, 0644, true, 0, 2048)));
     EXPECT_NO_THROW(leaseous.close());
 };
 
@@ -133,13 +147,13 @@ static void heartBeatSender(int flag) {
     EXPECT_CALL(*fs, getConf()).Times(1).WillOnce(ReturnRef(sessionConf));
 
     if (flag & Append) {
-        EXPECT_CALL(*fs, append(_)).Times(1).WillOnce(Return(lastBlockWithStatus));
+        EXPECT_CALL(*fs, append(_,_)).Times(1).WillOnce(Return(lastBlockWithStatus));
     } else {
         EXPECT_CALL(*fs, create(_, _, _, _, _, _)).Times(1);
     }
 
     EXPECT_CALL(*fs, registerOpenedOutputStream()).Times(1);
-    EXPECT_NO_THROW(ous.open(shared_ptr<FileSystemInter>(fs), "testheartBeat", flag, 0644, false, 3, 1024 * 1024));
+    EXPECT_NO_THROW(wrappedOpen(ous, shared_ptr<FileSystemInter>(fs), "testheartBeat", flag, 0644, false, 3, 1024 * 1024));
     char buffer[20];
     Hdfs::FillBuffer(buffer, sizeof(buffer), 0);
     EXPECT_NO_THROW(ous.append(buffer, sizeof(buffer)));
@@ -150,7 +164,7 @@ static void heartBeatSender(int flag) {
     sleep_for(seconds(21));
     EXPECT_CALL(*pipeline, close(_)).Times(1).WillOnce(Return(lastBlock));
     EXPECT_CALL(*fs, fsync(_)).Times(1);
-    EXPECT_CALL(*fs, complete(_, _)).Times(1).WillOnce(Return(true));
+    EXPECT_CALL(*fs, complete(_, _, _)).Times(1).WillOnce(Return(true));
     EXPECT_CALL(*fs, unregisterOpenedOutputStream()).Times(1);
     EXPECT_NO_THROW(ous.close());
 }
@@ -176,13 +190,13 @@ static void heartBeatSenderThrow(int flag) {
     EXPECT_CALL(*fs, getConf()).Times(1).WillOnce(ReturnRef(sessionConf));
 
     if (flag & Append) {
-        EXPECT_CALL(*fs, append(_)).Times(1).WillOnce(Return(lastBlockWithStatus));
+        EXPECT_CALL(*fs, append(_,_)).Times(1).WillOnce(Return(lastBlockWithStatus));
     } else {
         EXPECT_CALL(*fs, create(_, _, _, _, _, _)).Times(1);
     }
 
     EXPECT_CALL(*fs, registerOpenedOutputStream()).Times(1);
-    EXPECT_NO_THROW(ous.open(shared_ptr<FileSystemInter>(fs), "testheartBeat", flag, 0644, false, 3, 1024 * 1024));
+    EXPECT_NO_THROW(wrappedOpen(ous, shared_ptr<FileSystemInter>(fs), "testheartBeat", flag, 0644, false, 3, 1024 * 1024));
     char buffer[20];
     Hdfs::FillBuffer(buffer, sizeof(buffer), 0);
     EXPECT_NO_THROW(ous.append(buffer, sizeof(buffer)));
@@ -193,7 +207,7 @@ static void heartBeatSenderThrow(int flag) {
     sleep_for(seconds(11));
     EXPECT_CALL(*pipeline, close(_)).Times(1).WillOnce(Return(lastBlock));
     EXPECT_CALL(*fs, fsync(_)).Times(1);
-    EXPECT_CALL(*fs, complete(_, _)).Times(1).WillOnce(Return(true));
+    EXPECT_CALL(*fs, complete(_, _, _)).Times(1).WillOnce(Return(true));
     EXPECT_CALL(*fs, unregisterOpenedOutputStream()).Times(1);
     EXPECT_NO_THROW(ous.close());
 }
@@ -232,8 +246,8 @@ TEST_F(TestOutputStream, openForCreate_Success) {
     EXPECT_CALL(*fs, create(_, _, _, _, _, _)).Times(1);
     EXPECT_CALL(GetMockLeaseRenewer(), StartRenew(_)).Times(1);
     EXPECT_CALL(GetMockLeaseRenewer(), StopRenew(_)).Times(1);
-    EXPECT_NO_THROW(ous.open(shared_ptr<FileSystemInter>(fs), "testopen", Create, 0644, false, 3, 1024 * 1024));
-    EXPECT_CALL(*fs, complete(_, _)).Times(1).WillOnce(Return(true));
+    EXPECT_NO_THROW(wrappedOpen(ous, shared_ptr<FileSystemInter>(fs), "testopen", Create, 0644, false, 3, 1024 * 1024));
+    EXPECT_CALL(*fs, complete(_, _, _)).Times(1).WillOnce(Return(true));
     EXPECT_NO_THROW(ous.close());
 }
 
@@ -247,8 +261,8 @@ TEST_F(TestOutputStream, registerForCreate_Success) {
     EXPECT_CALL(*fs, create(_, _, _, _, _, _)).Times(1);
     EXPECT_CALL(GetMockLeaseRenewer(), StartRenew(_)).Times(1);
     EXPECT_CALL(GetMockLeaseRenewer(), StopRenew(_)).Times(1);
-    EXPECT_NO_THROW(ous.open(shared_ptr<FileSystemInter>(fs), "testregiester", Create, 0644, false, 3, 1024 * 1024));
-    EXPECT_CALL(*fs, complete(_, _)).Times(1).WillOnce(Return(true));
+    EXPECT_NO_THROW(wrappedOpen(ous, shared_ptr<FileSystemInter>(fs), "testregiester", Create, 0644, false, 3, 1024 * 1024));
+    EXPECT_CALL(*fs, complete(_, _, _)).Times(1).WillOnce(Return(true));
     EXPECT_NO_THROW(ous.close());
 }
 
@@ -267,11 +281,11 @@ TEST_F(TestOutputStream, registerForAppend_Success) {
     lastBlockWithStatus.second = shared_ptr<FileStatus>(new FileStatus(fileinfo));
     EXPECT_CALL(*fs, getStandardPath(_)).Times(1).WillOnce(Return("/testregiester"));
     EXPECT_CALL(*fs, getConf()).Times(1).WillOnce(ReturnRef(sessionConf));
-    EXPECT_CALL(*fs, append(_)).Times(1).WillOnce(Return(lastBlockWithStatus));
+    EXPECT_CALL(*fs, append(_,_)).Times(1);
     EXPECT_CALL(GetMockLeaseRenewer(), StartRenew(_)).Times(1);
     EXPECT_CALL(GetMockLeaseRenewer(), StopRenew(_)).Times(1);
-    EXPECT_NO_THROW(ous.open(shared_ptr<FileSystemInter>(fs), "testregiester", Append, 0644, false, 0, 0));
-    EXPECT_CALL(*fs, complete(_, _)).Times(1).WillOnce(Return(true));
+    EXPECT_NO_THROW(wrappedOpen(ous, shared_ptr<FileSystemInter>(fs), "testregiester", Append, 0644, false, 0, 0));
+    EXPECT_CALL(*fs, complete(_, _, _)).Times(1).WillOnce(Return(true));
     EXPECT_NO_THROW(ous.close());
 }
 
@@ -281,10 +295,8 @@ TEST_F(TestOutputStream, openForCreate_Fail) {
     Config conf;
     const SessionConfig sessionConf(conf);
     HdfsIOException e("test", "test", 2, "test");
-    EXPECT_CALL(*fs, getStandardPath(_)).Times(1).WillOnce(Return("/testopen"));
-    EXPECT_CALL(*fs, getConf()).Times(1).WillOnce(ReturnRef(sessionConf));
     EXPECT_CALL(*fs, create(_, _, _, _, _, _)).Times(1).WillOnce(Throw(e));
-    EXPECT_THROW(ous.open(shared_ptr<FileSystemInter>(fs), "testopen", Create, 0644, false, 3, 1024 * 1024), HdfsIOException);
+    EXPECT_THROW(wrappedOpen(ous, shared_ptr<FileSystemInter>(fs), "testopen", Create, 0644, false, 3, 1024 * 1024), HdfsIOException);
 }
 
 
@@ -303,11 +315,11 @@ TEST_F(TestOutputStream, openForAppend_Success) {
     lastBlockWithStatus.second = shared_ptr<FileStatus>(new FileStatus(fileinfo));
     EXPECT_CALL(*fs, getStandardPath(_)).Times(1).WillOnce(Return("/testopen"));
     EXPECT_CALL(*fs, getConf()).Times(1).WillOnce(ReturnRef(sessionConf));
-    EXPECT_CALL(*fs, append(_)).Times(1).WillOnce(Return(lastBlockWithStatus));
+    EXPECT_CALL(*fs, append(_,_)).Times(1).WillOnce(Return(lastBlockWithStatus));
     EXPECT_CALL(GetMockLeaseRenewer(), StartRenew(_)).Times(1);
     EXPECT_CALL(GetMockLeaseRenewer(), StopRenew(_)).Times(1);
-    EXPECT_NO_THROW(ous.open(shared_ptr<FileSystemInter>(fs), "testopen", Append, 0644, false, 0, 0));
-    EXPECT_CALL(*fs, complete(_, _)).Times(1).WillOnce(Return(true));
+    EXPECT_NO_THROW(wrappedOpen(ous, shared_ptr<FileSystemInter>(fs), "testopen", Append, 0644, false, 0, 0));
+    EXPECT_CALL(*fs, complete(_, _, _)).Times(1).WillOnce(Return(true));
     EXPECT_NO_THROW(ous.close());
 }
 
@@ -319,10 +331,8 @@ TEST_F(TestOutputStream, openForAppend_Fail) {
     FileStatus fileinfo;
     fileinfo.setBlocksize(2048);
     fileinfo.setLength(1024);
-    EXPECT_CALL(*fs, getStandardPath(_)).Times(1).WillOnce(Return("/testopen"));
-    EXPECT_CALL(*fs, getConf()).Times(1).WillOnce(ReturnRef(sessionConf));
-    EXPECT_CALL(*fs, append(_)).Times(1).WillOnce(Throw(FileNotFoundException("test", "test", 2, "test")));
-    EXPECT_THROW(ous.open(shared_ptr<FileSystemInter>(fs), "testopen", Append, 0644, false, 0, 0), FileNotFoundException);
+    EXPECT_CALL(*fs, append(_,_)).Times(1).WillOnce(Throw(FileNotFoundException("test", "test", 2, "test")));
+    EXPECT_THROW(wrappedOpen(ous, shared_ptr<FileSystemInter>(fs), "testopen", Append, 0644, false, 0, 0), FileNotFoundException);
 }
 
 TEST_F(TestOutputStream, append_Success) {
@@ -343,10 +353,10 @@ TEST_F(TestOutputStream, append_Success) {
     lastBlockWithStatus.second = shared_ptr<FileStatus>(new FileStatus(fileinfo));
     EXPECT_CALL(*fs, getStandardPath(_)).Times(1).WillOnce(Return("/testopen"));
     EXPECT_CALL(*fs, getConf()).Times(1).WillOnce(ReturnRef(sessionConf));
-    EXPECT_CALL(*fs, append(_)).Times(1).WillOnce(Return(lastBlockWithStatus));
+    EXPECT_CALL(*fs, append(_,_)).Times(1).WillOnce(Return(lastBlockWithStatus));
     EXPECT_CALL(GetMockLeaseRenewer(), StartRenew(_)).Times(1);
     EXPECT_CALL(GetMockLeaseRenewer(), StopRenew(_)).Times(1);
-    EXPECT_NO_THROW(ous.open(shared_ptr<FileSystemInter>(fs), "testopen", Create | Append, 0644, false, 3, 2048));
+    EXPECT_NO_THROW(wrappedOpen(ous, shared_ptr<FileSystemInter>(fs), "testopen", Create | Append, 0644, false, 3, 2048));
     char buffer[4096 + 523];
     Hdfs::FillBuffer(buffer, sizeof(buffer), 0);
     EXPECT_CALL(stub, getPipeline()).Times(3).WillOnce(Return(pipelineStub)).WillOnce(Return(pipelineStub)).WillOnce(Return(pipelineStub));
@@ -356,7 +366,7 @@ TEST_F(TestOutputStream, append_Success) {
     EXPECT_NO_THROW(ous.append(buffer, sizeof(buffer)));
     EXPECT_CALL(*pipelineStub, close(_)).Times(1).WillOnce(Return(lastBlock));
     EXPECT_CALL(*fs, fsync(_)).Times(1);
-    EXPECT_CALL(*fs, complete(_, _)).Times(1).WillOnce(Return(true));
+    EXPECT_CALL(*fs, complete(_, _, _)).Times(1).WillOnce(Return(true));
     EXPECT_NO_THROW(ous.close());
 }
 
@@ -379,10 +389,10 @@ TEST_F(TestOutputStream, flush_Success) {
     lastBlockWithStatus.second = shared_ptr<FileStatus>(new FileStatus(fileinfo));
     EXPECT_CALL(*fs, getStandardPath(_)).Times(1).WillOnce(Return("/testflush"));
     EXPECT_CALL(*fs, getConf()).Times(1).WillOnce(ReturnRef(sessionConf));
-    EXPECT_CALL(*fs, append(_)).Times(1).WillOnce(Return(lastBlockWithStatus));
+    EXPECT_CALL(*fs, append(_,_)).Times(1).WillOnce(Return(lastBlockWithStatus));
     EXPECT_CALL(GetMockLeaseRenewer(), StartRenew(_)).Times(1);
     EXPECT_CALL(GetMockLeaseRenewer(), StopRenew(_)).Times(1);
-    EXPECT_NO_THROW(ous.open(shared_ptr<FileSystemInter>(fs), "testflush", Create | Append, 0644, false, 3, 1024 * 1024));
+    EXPECT_NO_THROW(wrappedOpen(ous, shared_ptr<FileSystemInter>(fs), "testflush", Create | Append, 0644, false, 3, 1024 * 1024));
     char buffer[20];
     Hdfs::FillBuffer(buffer, sizeof(buffer), 0);
     EXPECT_NO_THROW(ous.append(buffer, sizeof(buffer)));
@@ -392,7 +402,7 @@ TEST_F(TestOutputStream, flush_Success) {
     EXPECT_NO_THROW(ous.flush());
     EXPECT_CALL(*pipelineStub, close(_)).Times(1).WillOnce(Return(lastBlock));
     EXPECT_CALL(*fs, fsync(_)).Times(1);
-    EXPECT_CALL(*fs, complete(_, _)).Times(1).WillOnce(Return(true));
+    EXPECT_CALL(*fs, complete(_, _, _)).Times(1).WillOnce(Return(true));
     EXPECT_NO_THROW(ous.close());
 }
 
@@ -407,4 +417,3 @@ TEST_F(TestOutputStream, ValidateFirstBadLink) {
     EXPECT_THROW(PipelineImpl::checkBadLinkFormat("8.8.8.8:500101"), HdfsException);
     EXPECT_THROW(PipelineImpl::checkBadLinkFormat("8.8.8.8:50010a"), HdfsException);
 }
-

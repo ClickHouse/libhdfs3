@@ -39,7 +39,7 @@ class FileStatus {
 public:
     FileStatus() :
         isdir(false), atime(0), blocksize(0), length(0), mtime(
-            0), permission(0644), replications(0) {
+            0), permission(0644), replications(0), ecPolicy(nullptr), fileId(0) {
     }
 
     int64_t getAccessTime() const {
@@ -158,6 +158,14 @@ public:
         this->ecPolicy = ecPolicy;
     }
 
+    int64_t getFileId() const {
+        return fileId;
+    }
+
+    void setFileId(int64_t fileId) {
+        this->fileId = fileId;
+    }
+
 private:
     bool isdir;
     int64_t atime;
@@ -172,6 +180,7 @@ private:
     std::string symlink;
     bool isStriped = false;
     Internal::ECPolicy * ecPolicy; // free by SystemECPolicies
+    int64_t fileId;
 };
 
 }

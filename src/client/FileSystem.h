@@ -38,7 +38,39 @@
 
 #include <vector>
 
+using namespace Hdfs::Internal;
+
 namespace Hdfs {
+
+/**
+ * Use the CreateFlag as follows:
+ * <ol>
+ * <li> CREATE - to create a file if it does not exist,
+ * else throw FileAlreadyExists.</li>
+ * <li> APPEND - to append to a file if it exists,
+ * else throw FileNotFoundException.</li>
+ * <li> OVERWRITE - to truncate a file if it exists,
+ * else throw FileNotFoundException.</li>
+ * <li> CREATE|APPEND - to create a file if it does not exist,
+ * else append to an existing file.</li>
+ * <li> CREATE|OVERWRITE - to create a file if it does not exist,
+ * else overwrite an existing file.</li>
+ * <li> SyncBlock - to force closed blocks to the disk device.
+ * In addition {@link OutputStream::sync()} should be called after each write,
+ * if true synchronous behavior is required.</li>
+ * </ol>
+ *
+ * Following combination is not valid and will result in
+ * {@link InvalidParameter}:
+ * <ol>
+ * <li> APPEND|OVERWRITE</li>
+ * <li> CREATE|APPEND|OVERWRITE</li>
+ * </ol>
+ */
+enum CreateFlag {
+    Create = 0x01, Overwrite = 0x02, Append = 0x04, SyncBlock = 0x08, NewBlock = 0x20
+};
+
 namespace Internal {
 struct FileSystemWrapper;
 }
@@ -298,6 +330,57 @@ public:
      */
     void getBlockLocations(const std::string & src, int64_t offset,
                            int64_t length, Hdfs::Internal::LocatedBlocks & lbs);
+
+    /**
+     * Append to the end of the file.
+     *
+     * @param src path of the file being appended.
+     * @param flag create flag.
+     */
+    std::pair<shared_ptr<LocatedBlock>, shared_ptr<FileStatus>> append(const std::string & src, const uint32_t & flag);
+
+    /**
+     * Create a new file entry in the namespace.
+     *
+     * @param src path of the file being created.
+     * @param masked masked permission.
+     * @param flag indicates whether the file should be
+     *  overwritten if it already exists or create if it does not exist or append.
+     * @param createParent create missing parent directory if true
+     * @param replication block replication factor.
+     * @param blockSize maximum block size.
+     */
+    FileStatus create(const std::string & src, const Permission & masked, int flag,
+                      bool createParent, short replication, int64_t blockSize);
+
+    /**
+     * To create or append a file.
+     * @param path the file path.
+     * @param flag creation flag, can be Create, Append or Create|Overwrite.
+     * @param permission create a new file with given permission.
+     * @param createParent if the parent does not exist, create it.
+     * @param replication create a file with given number of replication.
+     * @param blockSize  create a file with given block size.
+     */
+    std::pair<Internal::shared_ptr<Internal::LocatedBlock>, Internal::shared_ptr<FileStatus>>
+    createOrAppend(const char * path, int flag, const Permission & permission,
+                   bool createParent, int replication, int64_t blockSize);
+
+    /**
+     * Get FileSystemWrapper.
+     * @return the FileSystemWrapper.
+     */
+    Internal::FileSystemWrapper * getFileSystemWrapper() {
+        return impl;
+    }
+
+    /** 
+     * Get conf.
+     * @return the conf.
+     */
+    Config getConf() {
+        return conf;
+    }
 
 private:
     Config conf;

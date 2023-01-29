@@ -28,6 +28,7 @@
 #ifndef _HDFS_LIBHDFS3_CLIENT_PACKETPOOL_H_
 #define _HDFS_LIBHDFS3_CLIENT_PACKETPOOL_H_
 #include "Memory.h"
+#include "Thread.h"
 
 #include <deque>
 
@@ -63,6 +64,7 @@ public:
 private:
     int maxSize;
     std::deque<shared_ptr<Packet> > packets;
+    mutex mut;
 };
 
 }

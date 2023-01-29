@@ -309,17 +309,18 @@ public:
      * @param replication block replication factor.
      * @param blockSize maximum block size.
      */
-    void create(const std::string & src, const Permission & masked, int flag,
-                bool createParent, short replication, int64_t blockSize);
+    FileStatus create(const std::string & src, const Permission & masked, int flag,
+                      bool createParent, short replication, int64_t blockSize);
 
     /**
      * Append to the end of the file.
      *
      * @param src path of the file being created.
-     * @return return the last partial block if any
+     * @param flag create flag.
+     * @return return a pair of the last partial block and file status if any
      */
     std::pair<shared_ptr<LocatedBlock>, shared_ptr<FileStatus> > append(
-        const std::string& src);
+        const std::string& src, const uint32_t& flag);
 
     /**
      * The client can give up on a block by calling abandonBlock().
@@ -328,8 +329,9 @@ public:
      *
      * @param b the block to be abandoned.
      * @param src the file which the block belongs to.
+     * @param fileId the inode id of the file.
      */
-    void abandonBlock(const ExtendedBlock & b, const std::string & src);
+    void abandonBlock(const ExtendedBlock & b, const std::string & src, int64_t fileId);
 
     /**
      * A client that wants to write an additional block to the
@@ -346,11 +348,13 @@ public:
      * @param src the file being created
      * @param previous  previous block
      * @param excludeNodes a list of nodes that should not be allocated for the current block.
+     * @param fileId the inode id of the file.
      * @return return the new block.
      */
     shared_ptr<LocatedBlock> addBlock(const std::string & src,
                                       const ExtendedBlock * previous,
-                                      const std::vector<DatanodeInfo> & excludeNodes);
+                                      const std::vector<DatanodeInfo> & excludeNodes,
+                                      int64_t fileId);
 
     /**
      * Get a datanode for an existing pipeline.
@@ -388,7 +392,7 @@ public:
      * @param last last block to be committed.
      * @return return false if the client should retry.
      */
-    bool complete(const std::string & src, const ExtendedBlock * last);
+    bool complete(const std::string & src, const ExtendedBlock * last, int64_t fileId);
 
     /**
      * The client wants to report corrupted blocks (blocks with specified
