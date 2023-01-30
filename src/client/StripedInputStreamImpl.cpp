@@ -183,9 +183,10 @@ bool StripedInputStreamImpl::createBlockReader(LocatedBlock & block,
 
                 shared_ptr<ReadShortCircuitInfo> info;
                 ReadShortCircuitInfoBuilder builder(*node, auth, *conf);
+                EncryptionKey ekey = filesystem->getEncryptionKeys();
 
                 try {
-                    info = builder.fetchOrCreate(block, block.getToken());
+                    info = builder.fetchOrCreate(block, block.getToken(), ekey);
 
                     if (!info) {
                         continue;
@@ -208,7 +209,7 @@ bool StripedInputStreamImpl::createBlockReader(LocatedBlock & block,
                 if (FaultInjector::get().testBadReader()) {
                     THROW(HdfsIOException, "bad RemoteBlockReader");
                 }
-                reader = shared_ptr<BlockReader>(new RemoteBlockReader(
+                reader = shared_ptr<BlockReader>(new RemoteBlockReader(filesystem,
                     block, *node, *peerCache, offsetInBlock, block.getNumBytes() - offsetInBlock,
                     block.getToken(), clientName, verify, *conf));
             }

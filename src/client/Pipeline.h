@@ -130,7 +130,7 @@ public:
     /**
      * construct and setup the pipeline for append.
      */
-    PipelineImpl(const char * path, const SessionConfig & conf,
+    PipelineImpl(const char * path, SessionConfig & conf,
                  shared_ptr<FileSystemInter> filesystem, int checksumType, int chunkSize,
                  int replication, int64_t bytesSent, PacketPool & packetPool,
                  shared_ptr<LocatedBlock> lastBlock, int64_t fileId);
@@ -230,7 +230,7 @@ public:
     /**
      * construct and setup the pipeline for append.
      */
-    StripedPipelineImpl(const char * path, const SessionConfig & conf,
+    StripedPipelineImpl(const char * path, SessionConfig & conf,
                  shared_ptr<FileSystemInter> filesystem, int checksumType, int chunkSize,
                  int replication, int64_t bytesSent, PacketPool & packetPool,
                  shared_ptr<LocatedBlock> lastBlock, int64_t fileId);

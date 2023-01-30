@@ -41,11 +41,11 @@
 namespace Hdfs {
 namespace Internal {
 
-PipelineImpl::PipelineImpl(const char * path, const SessionConfig & conf,
+PipelineImpl::PipelineImpl(const char * path, SessionConfig & conf,
                            shared_ptr<FileSystemInter> filesystem, int checksumType, int chunkSize,
                            int replication, int64_t bytesSent, PacketPool & packetPool,
                            shared_ptr<LocatedBlock> lastBlock, int64_t fileId) :
-    checksumType(checksumType), chunkSize(chunkSize), errorIndex(-1), replication(replication), bytesAcked(
+    config(conf), checksumType(checksumType), chunkSize(chunkSize), errorIndex(-1), replication(replication), bytesAcked(
     bytesSent), bytesSent(bytesSent), packetPool(packetPool), filesystem(filesystem), lastBlock(lastBlock), path(
     path), fileId(fileId) {
     canAddDatanode = conf.canAddDatanode();
@@ -841,7 +841,7 @@ shared_ptr<LocatedBlock> PipelineImpl::close(shared_ptr<Packet> lastPacket) {
     return lastBlock;
 }
 
-StripedPipelineImpl::StripedPipelineImpl(const char * path, const SessionConfig & conf,
+StripedPipelineImpl::StripedPipelineImpl(const char * path, SessionConfig & conf,
                     shared_ptr<FileSystemInter> filesystem, int checksumType, int chunkSize,
                     int replication, int64_t bytesSent, PacketPool & packetPool,
                     shared_ptr<LocatedBlock> lastBlock, int64_t fileId) :

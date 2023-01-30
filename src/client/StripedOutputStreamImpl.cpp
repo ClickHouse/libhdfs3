@@ -49,9 +49,6 @@ StripedOutputStreamImpl::StripedOutputStreamImpl(ECPolicy * ecPolicy) :
     OutputStreamImpl(), ecPolicy(ecPolicy), blockGroupIndex(0) {
 }
 
-StripedOutputStreamImpl::~StripedOutputStreamImpl() {
-}
-
 void StripedOutputStreamImpl::checkStatus() {
     if (closed) {
         THROW(HdfsIOException, "StripedOutputStreamImpl: stream is not opened.");
@@ -225,7 +222,7 @@ void StripedOutputStreamImpl::allocateNewBlock() {
         closeAllStreamers();
         THROW(HdfsIOException, "Cannot addBlock for EC.");
     }
-    assert(lb.isStriped());
+    assert(lb->isStriped());
     // assign the new block to the current block group
     currentBlockGroup = lb;
     blockGroupIndex++;
@@ -674,9 +671,8 @@ bool StripedOutputStreamImpl::generateParityCellsForLastStripe() {
         // Also pad zero bytes to all parity cells
         int position = buffers[i]->position();
 
-        assert (position <= parityCellSize && "If an internal block is smaller" +
-            " than parity block, then its last cell should be small than last" +
-            " parity cell");
+        assert (position <= parityCellSize && "If an internal block is smaller than parity block, "
+            "then its last cell should be small than last parity cell");
         for (int j = 0; j < parityCellSize - position; j++) {
             buffers[i]->put((uint8_t) 0);
         }

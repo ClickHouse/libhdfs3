@@ -345,13 +345,13 @@ void StripeReader::readStripe() {
 void StripeReader::finalizeDecodeInputs() {
     for (int i = 0; i < (int)alignedStripe.chunks.size(); i++) {
         StripedBlockUtil::StripingChunk* chunk = alignedStripe.chunks[i];
-        if (chunk != NULL && chunk->state == StripedBlockUtil::StripingChunk::FETCHED) {
+        if (chunk != nullptr && chunk->state == StripedBlockUtil::StripingChunk::FETCHED) {
             if (chunk->useChunkBuffer()) {
                 chunk->getChunkBuffer()->copyTo(decodeInputs[i]->getBuffer().get());
             } else {
                 chunk->getByteBuffer()->flip();
             }
-        } else if (chunk != NULL && 
+        } else if (chunk != nullptr &&
             chunk->state == StripedBlockUtil::StripingChunk::ALLZERO) {
                 decodeInputs[i]->setAllZero(true);
         }
@@ -393,8 +393,8 @@ void StripeReader::decodeAndFillBuffer(bool fillBuffer) {
 std::vector<int> StripeReader::prepareErasedIndices() {
     std::vector<int> decodeIndices(this->parityBlkNum);
     int pos = 0;
-    for (int i = 0; i < (int)alignedStripe.chunks.size(); i++) {
-        if (alignedStripe.chunks[i] != NULL &&
+    for (int i = 0; i < static_cast<int>(alignedStripe.chunks.size()); i++) {
+        if (alignedStripe.chunks[i] != nullptr &&
             alignedStripe.chunks[i]->state == StripedBlockUtil::StripingChunk::MISSING) {
             decodeIndices[pos++] = i;
         }
