@@ -59,7 +59,7 @@ int32_t parseProtection(std::string &str) {
     if (0 == strcasecmp(str.c_str(), "authentication")) {
         return Protection::AUTH;
     } else if (0 == strcasecmp(str.c_str(), "privacy")) {
-        return Protection::CONF;
+        return Protection::CONFIG;
     } else if (0 == strcasecmp(str.c_str(), "integrity")) {
         return Protection::INT;
     } else {

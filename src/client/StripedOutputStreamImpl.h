@@ -39,9 +39,9 @@ class StripedOutputStreamImpl: public OutputStreamImpl {
 public:
     StripedOutputStreamImpl();
 
-    StripedOutputStreamImpl(ECPolicy * ecPolicy);
+    explicit StripedOutputStreamImpl(ECPolicy * ecPolicy);
 
-    ~StripedOutputStreamImpl();
+    ~StripedOutputStreamImpl() = default;
 
     /**
      * To create or append a file.
@@ -98,8 +98,8 @@ protected:
     class CellBuffers {
     public:
         CellBuffers();
-        CellBuffers(const StripedOutputStreamImpl *sosi);
-        ~CellBuffers(){}
+        explicit CellBuffers(const StripedOutputStreamImpl *sosi);
+        ~CellBuffers() = default;
 
         const StripedOutputStreamImpl * sosi;
         std::vector<shared_ptr<ByteBuffer>> buffers;
@@ -115,7 +115,7 @@ protected:
     public:
         MultipleBlockingQueue();
         MultipleBlockingQueue(int numQueue);
-        ~MultipleBlockingQueue(){}
+        ~MultipleBlockingQueue() = default;
 
         void push(int i, T t);
         void pop(int i);
@@ -130,7 +130,7 @@ protected:
     public:
         Coordinator();
         Coordinator(int numAllBlocks);
-        ~Coordinator(){}
+        ~Coordinator() = default;
 
         shared_ptr<MultipleBlockingQueue<LocatedBlock>> getFollowingBlocks();
         void offerEndBlock(int i, LocatedBlock block);
@@ -149,7 +149,7 @@ protected:
             internalError(false), isClosed(false) {
         }
 
-        ~StripedDataStreamer() {}
+        ~StripedDataStreamer() = default;
 
         int getIndex() {
             return index;

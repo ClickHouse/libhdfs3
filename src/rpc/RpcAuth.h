@@ -49,7 +49,7 @@ enum AuthProtocol {
 enum Protection {
     AUTH = 1, // Authentication
     INT = 2, // Integrity
-    CONF = 4 // Privacy
+    CONFIG = 4 // Privacy
 };
 
 class RpcAuth {
