@@ -52,7 +52,7 @@ shared_ptr<Packet> PacketPool::getPacket(int pktSize, int chunksPerPkt,
     }
 }
 
-void PacketPool::relesePacket(shared_ptr<Packet> packet) {
+void PacketPool::releasePacket(shared_ptr<Packet> packet) {
     lock_guard < mutex > lock(mut);
     if (static_cast<int>(packets.size()) >= maxSize) {
         return;

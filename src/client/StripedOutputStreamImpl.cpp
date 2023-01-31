@@ -41,7 +41,7 @@ namespace Internal {
 
 StripedOutputStreamImpl::StripedOutputStreamImpl() : OutputStreamImpl() {
 #ifdef MOCK
-    stub = NULL;
+    stub = nullptr;
 #endif
 }
 
@@ -73,7 +73,7 @@ void StripedOutputStreamImpl::open(shared_ptr<FileSystemInter> fs, const char * 
                                    std::pair<shared_ptr<LocatedBlock>, shared_ptr<Hdfs::FileStatus>> & pair,
                                    int flag, const Permission & permission, bool createParent, int replication,
                                    int64_t blockSize, int64_t fileId) {
-    if (NULL == path || 0 == strlen(path) || replication < 0 || blockSize < 0) {
+    if (nullptr == path || 0 == strlen(path) || replication < 0 || blockSize < 0) {
         THROW(InvalidParameter, "Invalid parameter.");
     }
 
@@ -197,7 +197,7 @@ void StripedOutputStreamImpl::replaceFailedStreamers() {
 
 void StripedOutputStreamImpl::closeAllStreamers() {
     // The write has failed, close all the streamers.
-    for (int i = 0; i < (int)streamers.size(); i++) {
+    for (int i = 0; i < static_cast<int>(streamers.size()); i++) {
         streamers[i]->close(true);
     }
 }
@@ -231,7 +231,7 @@ void StripedOutputStreamImpl::allocateNewBlock() {
     StripedBlockUtil::parseStripedBlockGroup(*currentBlockGroup, cellSize, numDataBlocks,
                                              numAllBlocks - numDataBlocks, blocks);
 
-    for (int i = 0; i < (int)blocks.size(); i++) {
+    for (int i = 0; i < static_cast<int>(blocks.size()); i++) {
         coordinator->getFollowingBlocks()->push(i, blocks[i]);
     }
 }
@@ -246,7 +246,7 @@ void StripedOutputStreamImpl::writeParity(int index, shared_ptr<ByteBuffer> buff
             for (int i = 0; i < len; i += chunkSize) {
                 int chunkLen = min(chunkSize, len - i);
                 checksum->reset();
-                checksum->update((const char * )buffer->getBuffer() + pos, chunkLen);
+                checksum->update((const char *)buffer->getBuffer() + pos, chunkLen);
                 appendChunkToPacketInternal((const char * )buffer->getBuffer() + pos, chunkLen);
                 pos += chunkLen;
             }
@@ -281,7 +281,7 @@ void StripedOutputStreamImpl::encode(shared_ptr<RawErasureEncoder> encoder, int 
         dataBuffers[i] = buffers[i];
     }
     parityBuffers.resize(buffers.size() - numData);
-    for (int j = numData; j < (int)buffers.size(); j++) {
+    for (int j = numData; j < static_cast<int>(buffers.size()); j++) {
         parityBuffers[j - numData] = buffers[j];
     }
 
@@ -379,11 +379,11 @@ void StripedOutputStreamImpl::initAppend(std::pair<shared_ptr<LocatedBlock>, sha
     if (lastBlockWithStatus.second) {
         fileInfo = *lastBlockWithStatus.second;
     } else {
-        fileInfo = filesystem->getFileStatus(this->path.c_str());
+        fileInfo = filesystem->getFileStatus(path.c_str());
     }
 
     closed = false;
-    this->blockSize = fileInfo.getBlockSize();
+    blockSize = fileInfo.getBlockSize();
     cursor = fileInfo.getLength();
 
     computePacketChunkSize();
@@ -392,7 +392,7 @@ void StripedOutputStreamImpl::initAppend(std::pair<shared_ptr<LocatedBlock>, sha
 void StripedOutputStreamImpl::append(const char * buf, int64_t size) {
     LOG(DEBUG1, "append file %s size is %" PRId64 ", offset %" PRId64 " next pos %" PRId64, path.c_str(), size, cursor, size + cursor);
 
-    if (NULL == buf || size < 0) {
+    if (nullptr == buf || size < 0) {
         THROW(InvalidParameter, "Invalid parameter.");
     }
 
@@ -439,7 +439,7 @@ void StripedOutputStreamImpl::appendInternal(const char * buf, int64_t size) {
 }
 
 void StripedOutputStreamImpl::appendChunkToPacketInternal(const char * buf, int size) {
-    assert(NULL != buf && size > 0);
+    assert(nullptr != buf && size > 0);
     if (!currentPacket) {
         currentPacket = packets.getPacket(packetSize, chunksPerPacket,
                                           getCurrentStreamer()->getPipeline() != nullptr ?
@@ -506,7 +506,7 @@ void StripedOutputStreamImpl::handleStreamerFailure(const char* err, Hdfs::excep
 }
 
 void StripedOutputStreamImpl::appendChunkToPacket(const char * buf, int size) {
-    assert(NULL != buf && size > 0);
+    assert(nullptr != buf && size > 0);
 
     int index = getCurrentIndex();
     int pos = cellBuffers->addTo(index, buf, size);
@@ -683,7 +683,7 @@ bool StripedOutputStreamImpl::generateParityCellsForLastStripe() {
 
 void StripedOutputStreamImpl::enqueueAllCurrentPackets() {
     int idx = getCurrentIndex();
-    for (int i = 0; i < (int)streamers.size(); i++) {
+    for (int i = 0; i < static_cast<int>(streamers.size()); i++) {
         shared_ptr<StripedDataStreamer> si = setCurrentStreamer(i);
         if (si->isHealthy() && currentPacket != nullptr) {
             try {
@@ -707,7 +707,7 @@ bool StripedOutputStreamImpl::isStreamerWriting(int index) {
     if (index >= numDataBlocks) {
       return true;
     }
-    int numCells = (int) ((length - 1) / cellSize + 1);
+    int numCells = static_cast<int>(((length - 1) / cellSize) + 1);
     return index < numCells;
 }
 
@@ -724,7 +724,6 @@ ExtendedBlock StripedOutputStreamImpl::updateBlockForPipeline(
     for (int i = 0; i < numAllBlocks; i++) {
         auto si = getStripedDataStreamer(i);
         if (healthyStreamers.count(si) > 0) {
-            // TODO: create stream async in thread pool
             si->getPipeline()->createBlockOutputStream(updatedBlks[i].getToken(), newGS, true);
         }
     }
@@ -787,9 +786,9 @@ int64_t StripedOutputStreamImpl::getAckedLength() {
     */
 
     // How many full and empty data cells do we expect?
-    int numFullDataCells = (int)
-        ((sentBytes - fullStripeLength) / cellSize);
-    int partialLength = (int) (sentBytes - fullStripeLength) % cellSize;
+    int numFullDataCells = static_cast<int>(
+        ((sentBytes - fullStripeLength) / cellSize));
+    int partialLength = static_cast<int>((sentBytes - fullStripeLength) % cellSize);
     int numPartialDataCells = partialLength == 0 ? 0 : 1;
     int numEmptyDataCells = numDataBlocks - numFullDataCells - numPartialDataCells;
     // Calculate the expected length of the parity blocks.
@@ -1046,10 +1045,6 @@ StripedOutputStreamImpl::Coordinator::Coordinator(int numAllBlocks) {
 shared_ptr<StripedOutputStreamImpl::MultipleBlockingQueue<LocatedBlock>>
 StripedOutputStreamImpl::Coordinator::getFollowingBlocks() {
     return followingBlocks;
-}
-
-void StripedOutputStreamImpl::Coordinator::offerEndBlock(int i, LocatedBlock block) {
-    endBlocks->push(i, block);
 }
 
 }

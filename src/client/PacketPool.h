@@ -51,7 +51,7 @@ public:
     PacketPool(int size);
     shared_ptr<Packet> getPacket(int pktSize, int chunksPerPkt,
                                  int64_t offsetInBlock, int64_t seqno, int checksumSize);
-    void relesePacket(shared_ptr<Packet> packet);
+    void releasePacket(shared_ptr<Packet> packet);
 
     void setMaxSize(int size) {
         this->maxSize = size;

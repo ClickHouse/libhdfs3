@@ -41,7 +41,7 @@
 
 #include <iostream>
 #include <stdio.h>
-#include <stdlib.h>
+#include <cstdlib>
 #include <string.h>
 
 #ifndef TEST_HDFS_PREFIX
@@ -87,7 +87,7 @@ public:
         fs = new FileSystem(conf);
         fs->connect();
         superfs = new FileSystem(conf);
-        superfs->connect(conf.getString("dfs.default.uri"), HDFS_SUPERUSER, NULL);
+        superfs->connect(conf.getString("dfs.default.uri"), HDFS_SUPERUSER, nullptr);
         superfs->setWorkingDirectory(fs->getWorkingDirectory().c_str());
 
         try {
@@ -96,8 +96,8 @@ public:
         }
 
         superfs->mkdirs(BASE_DIR, 0755);
-        superfs->setOwner(TEST_HDFS_PREFIX, USER, NULL);
-        superfs->setOwner(BASE_DIR, USER, NULL);
+        superfs->setOwner(TEST_HDFS_PREFIX, USER, nullptr);
+        superfs->setOwner(BASE_DIR, USER, nullptr);
     }
 
     ~TestOutputStream() {
@@ -445,7 +445,7 @@ TEST_F(TestOutputStream, TestOpenFile_OpenFailed) {
     {
         //invalid path
         OutputStream os;
-        EXPECT_THROW(wrappedOpen(os, *fs, NULL, Create), InvalidParameter);
+        EXPECT_THROW(wrappedOpen(os, *fs, nullptr, Create), InvalidParameter);
     }
     {
         //unconnect filesystem

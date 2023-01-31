@@ -29,13 +29,13 @@ TEST_F(TestByteBuffer, TestConstructor) {
     EXPECT_TRUE(bb2.position() == 0);
 
     std::string str = "hello bytebuffer";
-    ByteBuffer bb3((int8_t*)str.c_str(), static_cast<uint32_t>(str.size()));
+    ByteBuffer bb3((int8_t *)str.c_str(), static_cast<uint32_t>(str.size()));
     EXPECT_TRUE(bb3.capacity() == static_cast<uint32_t>(str.size()));
     EXPECT_TRUE(bb3.limit()    == static_cast<uint32_t>(str.size()));
     EXPECT_TRUE(bb3.position() == 0);
     int8_t ret[32] = {0};
     bb3.getBytes(ret, static_cast<uint32_t>(str.size()));
-    EXPECT_TRUE(strcmp((const char*)ret, str.c_str()) == 0);
+    EXPECT_TRUE(strcmp((const char *)ret, str.c_str()) == 0);
 }
 
 TEST_F(TestByteBuffer, TestCheckSize) {
@@ -55,7 +55,7 @@ TEST_F(TestByteBuffer, TestPutAndGet) {
     bb.putLong(0x1234567890ABCDEF);
     bb.putFloat(2111.23f);
     bb.putDouble(35.5236245);
-    bb.putBytes((int8_t*)str.c_str(), str.size());
+    bb.putInt8_ts((int8_t *)str.c_str(), str.size());
     bb.printInfo();
 
     bb.flip();
@@ -72,12 +72,12 @@ TEST_F(TestByteBuffer, TestPutAndGet) {
 
     int8_t retbytes[32] = {0};
     bb.getBytes(retbytes, str.size());
-    EXPECT_TRUE(strcmp((char*)retbytes, str.c_str()) == 0);
+    EXPECT_TRUE(strcmp((char *)retbytes, str.c_str()) == 0);
 }
 
 TEST_F(TestByteBuffer, TestFlip) {
     ByteBuffer bb(1);
-    bb.putBytes((int8_t*)"hello", 5);
+    bb.putInt8_ts((int8_t *)"hello", 5);
     bb.flip();
     EXPECT_TRUE(bb.capacity() == 2049);
     EXPECT_TRUE(bb.limit() == 5);
@@ -86,7 +86,7 @@ TEST_F(TestByteBuffer, TestFlip) {
 
 TEST_F(TestByteBuffer, TestCompact) {
     ByteBuffer bb;
-    bb.putBytes((int8_t*)"hello", 5);
+    bb.putInt8_ts((int8_t *)"hello", 5);
     bb.flip();
     bb.get();
     bb.get(); // get two bytes, now position == 3
@@ -98,7 +98,7 @@ TEST_F(TestByteBuffer, TestCompact) {
 TEST_F(TestByteBuffer, TestDuplicate) {
     ByteBuffer bb;
     bb.putChar('a');
-    ByteBuffer *bb1 = bb.duplicate();
+    ByteBuffer * bb1 = bb.duplicate();
     EXPECT_TRUE(bb.equals(bb1));
     bb1->putChar('b');
     // The two buffers' position, limit values will be independent.
@@ -112,7 +112,7 @@ TEST_F(TestByteBuffer, TestDuplicate) {
 
 TEST_F(TestByteBuffer, TestSlice) {
     ByteBuffer bb;
-    bb.putBytes((int8_t*)"hello", 5);
+    bb.putInt8_ts((int8_t *)"hello", 5);
     EXPECT_TRUE(bb.position() == 5);
     EXPECT_TRUE(bb.limit() == 2048);
     bb.position(2);

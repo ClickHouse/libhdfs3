@@ -224,7 +224,6 @@ protected:
     std::string path;
     std::vector<DatanodeInfo> nodes;
     std::vector<std::string> storageIDs;
-    mutex mut;
     int64_t fileId;
 
 };

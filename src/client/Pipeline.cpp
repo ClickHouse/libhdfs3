@@ -772,7 +772,7 @@ void PipelineImpl::send(shared_ptr<Packet> packet) {
                 assert(sock);
                 // test bad node
                 if (FaultInjector::get().testBadWriterAtKillPos(bytesSent)) {
-                    LOG(INFO, "testBadWriterAtKillPos, bytesSent=%ld, bytesAcked=%ld",
+                    LOG(LOG_ERROR, "testBadWriterAtKillPos, bytesSent=%ld, bytesAcked=%ld",
                         bytesSent, bytesAcked);
                     THROW(HdfsIOException, "bad RemoteBlockWriter");
                 }
@@ -850,7 +850,7 @@ void PipelineImpl::processAck(PipelineAck & ack) {
             sock.reset();
         }
 
-        packetPool.relesePacket(packets[0]);
+        packetPool.releasePacket(packets[0]);
         packets.pop_front();
     } else {
         for (int i = ack.getNumOfReplies() - 1; i >= 0; --i) {
@@ -907,7 +907,6 @@ void PipelineImpl::flush() {
 }
 
 void PipelineImpl::waitForAcks(bool force) {
-    lock_guard < mutex > lock(mut);
     bool failover = false;
 
     while (!packets.empty()) {
@@ -925,7 +924,7 @@ void PipelineImpl::waitForAcks(bool force) {
 
             // test bad node
             if (FaultInjector::get().testBadWriterAtAckPos(bytesAcked)) {
-                LOG(INFO, "testBadWriterAtAckPos, bytesSent=%ld, bytesAcked=%ld",
+                LOG(LOG_ERROR, "testBadWriterAtAckPos, bytesSent=%ld, bytesAcked=%ld",
                     bytesSent, bytesAcked);
                 THROW(HdfsIOException, "bad RemoteBlockWriter");
             }
@@ -974,7 +973,7 @@ bool PipelineImpl::isClosed() {
 shared_ptr<LocatedBlock> PipelineImpl::close(shared_ptr<Packet> lastPacket) {
     // test bad node
     if (FaultInjector::get().testPipelineClose()) {
-        LOG(INFO, "testPipelineClose, bytesSent=%ld, bytesAcked=%ld",
+        LOG(LOG_ERROR, "testPipelineClose, bytesSent=%ld, bytesAcked=%ld",
             bytesSent, bytesAcked);
         THROW(HdfsIOException, "bad RemoteBlockWriter");
     }
@@ -1047,7 +1046,7 @@ void StripedPipelineImpl::buildForNewBlock(shared_ptr<LocatedBlock> block) {
         try {
             // test bad node
             if (FaultInjector::get().testCreateOutputStreamFailed()) {
-                LOG(INFO, "testCreateOutputStreamFailed, bytesSent=%ld, bytesAcked=%ld",
+                LOG(LOG_ERROR, "testCreateOutputStreamFailed, bytesSent=%ld, bytesAcked=%ld",
                     bytesSent, bytesAcked);
                 THROW(HdfsIOException, "bad RemoteBlockWriter");
             }

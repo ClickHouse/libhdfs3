@@ -154,7 +154,7 @@ public:
         shared_ptr<ByteBuffer> destBuffer;
         allocateOutputBuffer(destBuffer, static_cast<int>(length));
         int pos = static_cast<int>(destBuffer->position());
-        destBuffer->putBytes(bytesArr, length);
+        destBuffer->putInt8_ts(bytesArr, length);
         destBuffer->flip();
         destBuffer->position(pos);
 

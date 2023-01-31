@@ -48,14 +48,14 @@ StatefulStripeReader::~StatefulStripeReader() {
 }
 
 void StatefulStripeReader::prepareDecodeInputs() {
-    std::shared_ptr<ByteBuffer> cur;
+    shared_ptr<ByteBuffer> cur;
     {
         std::lock_guard<std::mutex> lk(mtx);
-        cur = std::shared_ptr<ByteBuffer>(dfsStripedInputStream->getCurStripeBuf()->duplicate());
+        cur = shared_ptr<ByteBuffer>(dfsStripedInputStream->getCurStripeBuf()->duplicate());
     }
 
     if (decodeInputs.empty()) {
-        this->decodeInputs = std::vector<std::shared_ptr<ECChunk>>(dataBlkNum + parityBlkNum);
+        decodeInputs = std::vector<shared_ptr<ECChunk>>(dataBlkNum + parityBlkNum);
     }
     int bufLen = static_cast<int>(alignedStripe.getSpanInBlock());
     int bufOff = static_cast<int>(alignedStripe.getOffsetInBlock());
@@ -64,9 +64,9 @@ void StatefulStripeReader::prepareDecodeInputs() {
         int pos = bufOff % cellSize + cellSize * i;
         cur->position(pos);
         cur->limit(pos + bufLen);
-        decodeInputs[i] = std::shared_ptr<ECChunk>(
-            new ECChunk(std::shared_ptr<ByteBuffer>(cur->slice()), 0, bufLen));
-        if (alignedStripe.chunks[i] == NULL) {
+        decodeInputs[i] = shared_ptr<ECChunk>(
+            new ECChunk(shared_ptr<ByteBuffer>(cur->slice()), 0, bufLen));
+        if (alignedStripe.chunks[i] == nullptr) {
             alignedStripe.chunks[i] =
                 new StripedBlockUtil::StripingChunk(decodeInputs[i]->getBuffer());
         }
@@ -77,13 +77,13 @@ bool StatefulStripeReader::prepareParityChunk(int index) {
     Preconditions::checkState(index >= dataBlkNum
         && alignedStripe.chunks[index] == nullptr);
     const int parityIndex = index - dataBlkNum;
-    std::shared_ptr<ByteBuffer> buf =
-        std::shared_ptr<ByteBuffer>(dfsStripedInputStream->getParityBuffer()->duplicate());
+    shared_ptr<ByteBuffer> buf =
+        shared_ptr<ByteBuffer>(dfsStripedInputStream->getParityBuffer()->duplicate());
     buf->position(cellSize * parityIndex);
     buf->limit(cellSize * parityIndex + static_cast<int>(alignedStripe.range->spanInBlock));
     decodeInputs[index] =
-        std::shared_ptr<ECChunk>(
-            new ECChunk(std::shared_ptr<ByteBuffer>(buf->slice()), 0,
+        shared_ptr<ECChunk>(
+            new ECChunk(shared_ptr<ByteBuffer>(buf->slice()), 0,
                         static_cast<int>(alignedStripe.range -> spanInBlock)));
     alignedStripe.chunks[index] =
         new StripedBlockUtil::StripingChunk(decodeInputs[index]->getBuffer());
