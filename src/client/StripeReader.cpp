@@ -28,13 +28,11 @@
 
 #include <future>
 
-using namespace std;
-
 namespace Hdfs {
 namespace Internal {
 // ReaderStrategy
 ReaderStrategy::ReaderStrategy(ByteBuffer & buf) : readBuf(buf) {
-    this->targetLength = buf.remaining();
+    targetLength = buf.remaining();
 }
 
 ReaderStrategy::ReaderStrategy(ByteBuffer & buf, int length) : readBuf(buf), targetLength(length) {
@@ -61,7 +59,7 @@ StripeReader::StripeReader(StripedBlockUtil::AlignedStripe & alignedStripe,
                            readerInfos(readerInfos),
                            ecPolicy(nullptr),
                            threadPool(ThreadPool::getInstance(
-                                   min((long) conf->getStripeReaderThreadPoolSize(),
+                                   min(static_cast<long>(conf->getStripeReaderThreadPoolSize()),
                                        sysconf(_SC_NPROCESSORS_ONLN) * 2))) {
 }
 
@@ -81,11 +79,11 @@ StripeReader::StripeReader(StripedBlockUtil::AlignedStripe & alignedStripe,
                            decoder(decoder),
                            dfsStripedInputStream(dfsStripedInputStream),
                            threadPool(ThreadPool::getInstance(
-                                   min((long) conf->getStripeReaderThreadPoolSize(),
+                                   min(static_cast<long>(conf->getStripeReaderThreadPoolSize()),
                                        sysconf(_SC_NPROCESSORS_ONLN) * 2))) {
-    this->dataBlkNum = ecPolicy->getNumDataUnits();
-    this->parityBlkNum = ecPolicy->getNumParityUnits();
-    this->cellSize = ecPolicy->getCellSize();
+    dataBlkNum = ecPolicy->getNumDataUnits();
+    parityBlkNum = ecPolicy->getNumParityUnits();
+    cellSize = ecPolicy->getCellSize();
 }
 
 StripeReader::~StripeReader() {
@@ -343,8 +341,8 @@ void StripeReader::readStripe() {
  * finalize decode input buffers.
  */
 void StripeReader::finalizeDecodeInputs() {
-    for (int i = 0; i < (int)alignedStripe.chunks.size(); i++) {
-        StripedBlockUtil::StripingChunk* chunk = alignedStripe.chunks[i];
+    for (int i = 0; i < static_cast<int>(alignedStripe.chunks.size()); i++) {
+        StripedBlockUtil::StripingChunk * chunk = alignedStripe.chunks[i];
         if (chunk != nullptr && chunk->state == StripedBlockUtil::StripingChunk::FETCHED) {
             if (chunk->useChunkBuffer()) {
                 chunk->getChunkBuffer()->copyTo(decodeInputs[i]->getBuffer().get());
@@ -366,7 +364,7 @@ void StripeReader::decodeAndFillBuffer(bool fillBuffer) {
     vector<int> decodeIndices = prepareErasedIndices();
 
     const int decodeChunkNum = decodeIndices.size();
-    std::vector<std::shared_ptr<ECChunk>> outputs(decodeChunkNum);
+    std::vector<shared_ptr<ECChunk>> outputs(decodeChunkNum);
     for (int i = 0; i < decodeChunkNum; i++) {
         outputs[i] = decodeInputs[decodeIndices[i]];
         decodeInputs[decodeIndices[i]] = nullptr;
@@ -377,7 +375,7 @@ void StripeReader::decodeAndFillBuffer(bool fillBuffer) {
 
     // Step 3: fill original application buffer with decoded data
     if (fillBuffer) {
-        for (int i = 0; i < (int)decodeIndices.size(); i++) {
+        for (int i = 0; i < static_cast<int>(decodeIndices.size()); i++) {
             int missingBlkIdx = decodeIndices[i];
             StripedBlockUtil::StripingChunk *chunk = alignedStripe.chunks[missingBlkIdx];
             if (chunk->state == StripedBlockUtil::StripingChunk::MISSING && chunk->useChunkBuffer()) {
@@ -391,7 +389,7 @@ void StripeReader::decodeAndFillBuffer(bool fillBuffer) {
  * Prepare erased indices.
  */
 std::vector<int> StripeReader::prepareErasedIndices() {
-    std::vector<int> decodeIndices(this->parityBlkNum);
+    std::vector<int> decodeIndices(parityBlkNum);
     int pos = 0;
     for (int i = 0; i < static_cast<int>(alignedStripe.chunks.size()); i++) {
         if (alignedStripe.chunks[i] != nullptr &&
@@ -418,23 +416,6 @@ void StripeReader::clearFutures() {
     futures.clear();
 }
 
-// ReaderRetryPolicy
-void StripeReader::ReaderRetryPolicy::refetchEncryptionKey() {
-    fetchEncryptionKeyTimes--;
-}
-
-void StripeReader::ReaderRetryPolicy::refetchToken() {
-    fetchTokenTimes--;
-}
-
-bool StripeReader::ReaderRetryPolicy::shouldRefetchEncryptionKey() {
-    return fetchEncryptionKeyTimes > 0;
-}
-
-bool StripeReader::ReaderRetryPolicy::shouldRefetchToken() {
-    return fetchTokenTimes > 0;
-}
-
 // BlockReaderInfo
 StripeReader::BlockReaderInfo::BlockReaderInfo(
     shared_ptr<BlockReader> reader, DatanodeInfo node, long offset) :
@@ -442,11 +423,11 @@ StripeReader::BlockReaderInfo::BlockReaderInfo(
 }
 
 void StripeReader::BlockReaderInfo::setOffset(int64_t offset) {
-    this->blockReaderOffset = offset;
+    blockReaderOffset = offset;
 }
 
 void StripeReader::BlockReaderInfo::skip() {
-    this->shouldSkip = true;
+    shouldSkip = true;
 }
 
 }

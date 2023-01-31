@@ -44,22 +44,22 @@ public:
     /**
      * Prepare all the data chunks.
      */
-    void prepareDecodeInputs();
+    void prepareDecodeInputs() override;
 
     /**
      * Prepare the parity chunk and block reader if necessary.
      */
-    bool prepareParityChunk(int index);
+    bool prepareParityChunk(int index) override;
 
     /**
      * Decode to get the missing data.
      */
-    void decode();
+    void decode() override;
 
     /**
      * Default close do nothing.
      */
-    void close();
+    void close() override;
 
 private:
     std::mutex mtx;

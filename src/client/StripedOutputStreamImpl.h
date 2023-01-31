@@ -58,41 +58,41 @@ public:
     void open(shared_ptr<FileSystemInter> fs, const char * path,
               std::pair<shared_ptr<LocatedBlock>, shared_ptr<Hdfs::FileStatus>> & pair,
               int flag, const Permission & permission, bool createParent, int replication,
-              int64_t blockSize, int64_t fileId);
+              int64_t blockSize, int64_t fileId) override;
 
     /**
      * To append data to file.
      * @param buf the data used to append.
      * @param size the data size.
      */
-    void append(const char * buf, int64_t size);
+    void append(const char * buf, int64_t size) override;
 
     /**
      * Flush all data in buffer and waiting for ack.
      * Will block until get all acks.
      */
-    void flush();
+    void flush() override;
 
     /**
      * @ref OutputStream::sync
      */
-    void sync();
+    void sync() override;
 
     /**
      * close the stream.
      */
-    void close();
+    void close() override;
 
     /**
      * Output a readable string of this output stream.
      */
-    std::string toString();
+    std::string toString() override;
 
     /**
      * Keep the last error of this stream.
      * @error the error to be kept.
      */
-    void setError(const exception_ptr & error);
+    void setError(const exception_ptr & error) override;
 
 protected:
     class CellBuffers {
@@ -133,7 +133,6 @@ protected:
         ~Coordinator() = default;
 
         shared_ptr<MultipleBlockingQueue<LocatedBlock>> getFollowingBlocks();
-        void offerEndBlock(int i, LocatedBlock block);
 
     private:
         shared_ptr<MultipleBlockingQueue<LocatedBlock>> followingBlocks;
@@ -172,7 +171,7 @@ protected:
         }
 
         void setPipeline(shared_ptr<PipelineImpl> pipeline) {
-            this->pipe = pipeline;
+            pipe = pipeline;
         }
 
         bool isHealthy() {
@@ -180,8 +179,8 @@ protected:
         }
 
         int64_t getAndIncNextSeqNo() {
-            int64_t old = this->nextSeqNo;
-            this->nextSeqNo++;
+            int64_t old = nextSeqNo;
+            nextSeqNo++;
             return old;
         }
 
@@ -189,29 +188,19 @@ protected:
             return bytesCurBlock;
         }
 
-        void setBytesCurBlock(int64_t bytesCurBlock) {
-            this->bytesCurBlock = bytesCurBlock;
+        void setBytesCurBlock(int64_t bytesCurBlock_) {
+            bytesCurBlock = bytesCurBlock_;
         }
 
         void incBytesCurBlock(int64_t len) {
-            this->bytesCurBlock += len;
+            bytesCurBlock += len;
         }
 
         void resetPipeline() {
-            this->pipe.reset();
+            pipe.reset();
         }
 
-        void close(bool force) {
-
-        }
-
-        void setStreamerClosed(bool val) {
-            this->isClosed = val;
-        }
-
-        bool isStreamerClosed() {
-            return isClosed;
-        }
+        void close(bool force) {}
 
         void setInternalError(bool error) {
             internalError = error;
@@ -266,7 +255,7 @@ private:
     void setupPipeline();
     void replaceFailedStreamers();
     void closeAllStreamers();
-    void handleStreamerFailure(const char* err, Hdfs::exception_ptr eptr,
+    void handleStreamerFailure(const char * err, Hdfs::exception_ptr eptr,
                                shared_ptr<StripedDataStreamer> streamer);
     std::set<shared_ptr<StripedDataStreamer>> checkStreamers();
     bool isStreamerWriting(int index);

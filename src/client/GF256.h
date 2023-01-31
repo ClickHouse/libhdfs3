@@ -32,7 +32,7 @@ namespace Internal {
 
 class GF256 {
     class GfMulTab {
-    private:
+    public:
         GfMulTab() {
             innerGfMulTab = std::vector<std::vector<int8_t>>(256);
             for (int i = 0; i < 256; i++) {
@@ -45,7 +45,7 @@ class GF256 {
         const std::vector<std::vector<int8_t>> & getInnerGfMulTab() const {
             return innerGfMulTab;
         }
-
+    private:
         std::vector<std::vector<int8_t>> innerGfMulTab;
     };
 

@@ -89,14 +89,6 @@ public:
         ReaderRetryPolicy() {}
         ~ReaderRetryPolicy() {}
 
-        void refetchEncryptionKey();
-        void refetchToken();
-        bool shouldRefetchEncryptionKey();
-        bool shouldRefetchToken();
-
-    private:
-        int fetchEncryptionKeyTimes = 1;
-        int fetchTokenTimes = 1;
     };
 
     class BlockReaderInfo {
@@ -192,7 +184,7 @@ protected:
     shared_ptr<ECPolicy> ecPolicy;
     shared_ptr<RawErasureDecoder> decoder;
     StripedInputStreamImpl * dfsStripedInputStream;
-    std::vector<std::shared_ptr<ECChunk>> decodeInputs;
+    std::vector<shared_ptr<ECChunk>> decodeInputs;
     ThreadPool & threadPool;
     int8_t dataBlkNum;
     int8_t parityBlkNum;
