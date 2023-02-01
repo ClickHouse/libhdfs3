@@ -57,7 +57,7 @@ namespace Internal {
 class InputStreamImpl: public InputStreamInter {
 public:
     InputStreamImpl();
-    InputStreamImpl(shared_ptr<LocatedBlocks> lbs);
+    explicit InputStreamImpl(shared_ptr<LocatedBlocks> lbs); 
     ~InputStreamImpl();
 
     /**

@@ -652,7 +652,6 @@ std::pair<shared_ptr<LocatedBlock>, shared_ptr<FileStatus>> FileSystem::append(c
         THROW(HdfsIOException, "FileSystem: not connected.");
     }
 
-    FileStatus fileInfo;
     std::pair<shared_ptr<LocatedBlock>, shared_ptr<FileStatus>> lastBlockWithStatus;
     lastBlockWithStatus = impl->filesystem->append(src, flag);
 
@@ -693,7 +692,7 @@ FileStatus FileSystem::create(const std::string & src, const Permission & masked
 std::pair<shared_ptr<LocatedBlock>, shared_ptr<FileStatus>>
 FileSystem::createOrAppend(const char * path, int flag, const Permission & permission,
                            bool createParent, int replication, int64_t blockSize) {
-    if (NULL == path || 0 == strlen(path) || replication < 0 || blockSize < 0) {
+    if (nullptr == path || 0 == strlen(path) || replication < 0 || blockSize < 0) {
         THROW(InvalidParameter, "Invalid parameter.");
     }
 

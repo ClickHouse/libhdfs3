@@ -30,7 +30,7 @@ namespace Internal {
 class StatefulStripeReader : public StripeReader {
 public:
     StatefulStripeReader(StripedBlockUtil::AlignedStripe & alignedStripe,
-                         ECPolicy * ecPolicy,
+                         shared_ptr<ECPolicy> ecPolicy,
                          std::vector<LocatedBlock> & targetBlocks,
                          std::vector<StripeReader::BlockReaderInfo *> & readerInfos,
                          shared_ptr<CorruptedBlocks> corruptedBlocks,

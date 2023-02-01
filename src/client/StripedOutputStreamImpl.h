@@ -39,7 +39,7 @@ class StripedOutputStreamImpl: public OutputStreamImpl {
 public:
     StripedOutputStreamImpl();
 
-    explicit StripedOutputStreamImpl(ECPolicy * ecPolicy);
+    explicit StripedOutputStreamImpl(shared_ptr<ECPolicy> ecPolicy);
 
     ~StripedOutputStreamImpl() = default;
 
@@ -114,7 +114,7 @@ protected:
     class MultipleBlockingQueue {
     public:
         MultipleBlockingQueue();
-        MultipleBlockingQueue(int numQueue);
+        explicit MultipleBlockingQueue(int numQueue);
         ~MultipleBlockingQueue() = default;
 
         void push(int i, T t);
@@ -129,7 +129,7 @@ protected:
     class Coordinator {
     public:
         Coordinator();
-        Coordinator(int numAllBlocks);
+        explicit Coordinator(int numAllBlocks);
         ~Coordinator() = default;
 
         shared_ptr<MultipleBlockingQueue<LocatedBlock>> getFollowingBlocks();
@@ -280,7 +280,7 @@ private:
     shared_ptr<Coordinator> coordinator;
     shared_ptr<CellBuffers> cellBuffers;
     shared_ptr<RawErasureEncoder> encoder;
-    ECPolicy * ecPolicy;
+    shared_ptr<ECPolicy> ecPolicy;
 
     shared_ptr<LocatedBlock> currentBlockGroup;
     shared_ptr<LocatedBlock> prevBlockGroup4Append;

@@ -66,7 +66,7 @@ StripeReader::StripeReader(StripedBlockUtil::AlignedStripe & alignedStripe,
 }
 
 StripeReader::StripeReader(StripedBlockUtil::AlignedStripe & alignedStripe,
-                           ECPolicy * ecPolicy,
+                           shared_ptr<ECPolicy> ecPolicy,
                            std::vector<LocatedBlock> & targetBlocks,
                            std::vector<BlockReaderInfo *> & readerInfos,
                            shared_ptr<CorruptedBlocks> corruptedBlocks,
@@ -379,8 +379,8 @@ void StripeReader::decodeAndFillBuffer(bool fillBuffer) {
     if (fillBuffer) {
         for (int i = 0; i < (int)decodeIndices.size(); i++) {
             int missingBlkIdx = decodeIndices[i];
-            Hdfs::StripedBlockUtil::StripingChunk *chunk = alignedStripe.chunks[missingBlkIdx];
-            if (chunk->state == Hdfs::StripedBlockUtil::StripingChunk::MISSING && chunk->useChunkBuffer()) {
+            StripedBlockUtil::StripingChunk *chunk = alignedStripe.chunks[missingBlkIdx];
+            if (chunk->state == StripedBlockUtil::StripingChunk::MISSING && chunk->useChunkBuffer()) {
                 chunk->getChunkBuffer()->copyFrom((outputs[i]->getBuffer().get()));
             }
         }

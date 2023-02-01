@@ -30,7 +30,7 @@ using namespace Hdfs::Internal;
 
 namespace Hdfs {
 void StripedBlockUtil::checkBlocks(ExtendedBlock blockGroup, int i, ExtendedBlock blocki) {
-    if (blocki.getPoolId() !=blockGroup.getPoolId()) {
+    if (blocki.getPoolId() != blockGroup.getPoolId()) {
         string err = "Block pool IDs mismatched: block" + std::to_string(i) + "="
             + blocki.toString() + ", expected block group=" + blockGroup.toString();
 	    throw err;
@@ -54,7 +54,7 @@ void StripedBlockUtil::constructInternalBlock(LocatedBlock & bg, int32_t idxInRe
     lb.setCorrupt(bg.isCorrupt());
     lb.setPoolId(bg.getPoolId());
     lb.setStriped(bg.isStriped());
-    if (idxInReturnedLocs < (int32_t)bg.getLocations().size()) {
+    if (idxInReturnedLocs < static_cast<int32_t>(bg.getLocations().size())) {
         std::vector<DatanodeInfo> & nodes = lb.mutableLocations();
         nodes.push_back(bg.getLocations()[idxInReturnedLocs]);
         std::vector<std::string> & storageIDs = lb.mutableStorageIDs();
@@ -63,15 +63,15 @@ void StripedBlockUtil::constructInternalBlock(LocatedBlock & bg, int32_t idxInRe
         lb.setLocations(std::vector<DatanodeInfo>());
         lb.setStorageIDs(std::vector<std::string>());
     }
-    std::vector<Token> & tokens = bg.getTokens();
-    if (idxInReturnedLocs < (int32_t)tokens.size()) {
+    std::vector<Token> & tokens = bg.mutableTokens();
+    if (idxInReturnedLocs < static_cast<int32_t>(tokens.size())) {
         lb.setToken(tokens[idxInReturnedLocs]);
     }
 }
 
-void StripedBlockUtil::divideOneStripe(ECPolicy* ecPolicy,
-    int cellSize, LocatedBlock& blockGroup, long rangeStartInBlockGroup,
-    long rangeEndInBlockGroup, ByteBuffer* buf, std::vector<AlignedStripe*>& stripes) {
+void StripedBlockUtil::divideOneStripe(shared_ptr<ECPolicy> ecPolicy,
+    int cellSize, LocatedBlock & blockGroup, long rangeStartInBlockGroup,
+    long rangeEndInBlockGroup, ByteBuffer * buf, std::vector<AlignedStripe*> & stripes) {
     int dataBlkNum = ecPolicy->getNumDataUnits();
     // Step 1: map the byte range to StripingCells
     std::vector<StripingCell> cells;
@@ -88,20 +88,20 @@ void StripedBlockUtil::divideOneStripe(ECPolicy* ecPolicy,
     // Step 4: calculate each chunk's position in destination buffer. Since the
     // whole read range is within a single stripe, the logic is simpler here.
     int bufOffset =
-        (int) (rangeStartInBlockGroup % ((long) cellSize * dataBlkNum));
-    for (int i = 0; i < (int)cells.size(); i++) {
+        static_cast<int>(rangeStartInBlockGroup % (static_cast<int>(cellSize * dataBlkNum)));
+    for (int i = 0; i < static_cast<int>(cells.size()); i++) {
       StripingCell & cell = cells[i];
       long cellStart = cell.idxInInternalBlk * cellSize + cell.offset;
       long cellEnd = cellStart + cell.size - 1;
-      for (int j = 0; j < (int)stripes.size(); j++) {
+      for (int j = 0; j < static_cast<int>(stripes.size()); j++) {
         AlignedStripe * s = stripes[j];
         long stripeEnd = s->getOffsetInBlock() + s->getSpanInBlock() - 1;
         long overlapStart = std::max(cellStart, s->getOffsetInBlock());
         long overlapEnd = std::min(cellEnd, stripeEnd);
-        int overLapLen = (int) (overlapEnd - overlapStart + 1);
+        int overLapLen = static_cast<int>(overlapEnd - overlapStart + 1);
         if (overLapLen > 0) {
-            Preconditions::checkState(s->chunks[cell.idxInStripe] == NULL);
-            int pos = (int) (bufOffset + overlapStart - cellStart);
+            Preconditions::checkState(s->chunks[cell.idxInStripe] == nullptr);
+            int pos = static_cast<int>(bufOffset + overlapStart - cellStart);
             buf->position(pos);
             buf->limit(pos + overLapLen);
             s->chunks[cell.idxInStripe] = new StripingChunk(shared_ptr<ByteBuffer>(buf->slice()));
@@ -113,11 +113,6 @@ void StripedBlockUtil::divideOneStripe(ECPolicy* ecPolicy,
     // Step 5: prepare ALLZERO blocks
     prepareAllZeroChunks(blockGroup, stripes, cellSize, dataBlkNum);
 }
-long StripedBlockUtil::getInternalBlockLength(long dataSize, ECPolicy ecPolicy,
-    int idxInBlockGroup) {
-    return getInternalBlockLength(dataSize, ecPolicy.getCellSize(),
-        ecPolicy.getNumDataUnits(), idxInBlockGroup);
-}
 
 int64_t StripedBlockUtil::getInternalBlockLength(int64_t dataSize, int32_t cellSize, 
     int32_t numDataBlocks, int32_t idxInBlockGroup) {
@@ -128,12 +123,12 @@ int64_t StripedBlockUtil::getInternalBlockLength(int64_t dataSize, int32_t cellS
     int32_t stripeSize = cellSize * numDataBlocks;
     // If block group ends at stripe boundary, each internal block has an equal
     // share of the group
-    int32_t lastStripeDataLen = (int32_t)(dataSize % stripeSize);
+    int32_t lastStripeDataLen = static_cast<int32_t>(dataSize % stripeSize);
     if (lastStripeDataLen == 0) {
         return dataSize / numDataBlocks;
     }
 
-    int32_t numStripes = (int32_t) ((dataSize - 1) / stripeSize + 1);
+    int32_t numStripes = static_cast<int32_t>((dataSize - 1) / stripeSize + 1);
     return (numStripes - 1) * cellSize
         + lastCellSize(lastStripeDataLen, cellSize, numDataBlocks, idxInBlockGroup);
 }
@@ -164,7 +159,7 @@ long StripedBlockUtil::offsetInBlkToOffsetInBG(int cellSize, int dataBlkNum,
     long offsetInBlk, int idxInBlockGroup) {
     int64_t cellIdxInBlk = offsetInBlk / cellSize;
     return cellIdxInBlk * cellSize * dataBlkNum // n full stripes before offset
-        + (int64_t)idxInBlockGroup * cellSize // m full cells before offset
+        + static_cast<int64_t>(idxInBlockGroup) * cellSize // m full cells before offset
         + offsetInBlk % cellSize; // partial cell
 }
 
@@ -181,15 +176,15 @@ void StripedBlockUtil::parseStripedBlockGroup(LocatedBlock & bg, int32_t cellSiz
     }
 }
 
-void StripedBlockUtil::getRangesForInternalBlocks(ECPolicy* ecPolicy, int cellSize,
-    std::vector<StripingCell>& cells, std::vector<VerticalRange>& ranges) {
+void StripedBlockUtil::getRangesForInternalBlocks(shared_ptr<ECPolicy> ecPolicy, int cellSize,
+    std::vector<StripingCell> & cells, std::vector<VerticalRange> & ranges) {
     int dataBlkNum = ecPolicy->getNumDataUnits();
     int parityBlkNum = ecPolicy->getNumParityUnits();
     ranges.resize(dataBlkNum + parityBlkNum);
 
     long earliestStart = LLONG_MAX;
     long latestEnd = -1;
-    for (int i = 0; i < (int)cells.size(); i++) {
+    for (int i = 0; i < static_cast<int>(cells.size()); i++) {
         StripingCell & cell = cells[i];
         // iterate through all cells and update the list of StripeRanges
         if (ranges[cell.idxInStripe].spanInBlock == 0) {
@@ -215,9 +210,9 @@ void StripedBlockUtil::getRangesForInternalBlocks(ECPolicy* ecPolicy, int cellSi
     }
 }
 
-void StripedBlockUtil::getStripingCellsOfByteRange(ECPolicy* ecPolicy,
-    int cellSize, LocatedBlock& blockGroup, long rangeStartInBlockGroup, 
-    long rangeEndInBlockGroup, std::vector<StripingCell>& cells) {
+void StripedBlockUtil::getStripingCellsOfByteRange(shared_ptr<ECPolicy> ecPolicy,
+    int cellSize, LocatedBlock & blockGroup, long rangeStartInBlockGroup, 
+    long rangeEndInBlockGroup, std::vector<StripingCell> & cells) {
     
     std::stringstream ss;
     ss << "start=" + std::to_string(rangeStartInBlockGroup)
@@ -228,18 +223,18 @@ void StripedBlockUtil::getStripingCellsOfByteRange(ECPolicy* ecPolicy,
         rangeStartInBlockGroup <= rangeEndInBlockGroup &&
             rangeEndInBlockGroup < blockGroup.getNumBytes(), ss.str());
     long len = rangeEndInBlockGroup - rangeStartInBlockGroup + 1;
-    int firstCellIdxInBG = (int) (rangeStartInBlockGroup / cellSize);
-    int lastCellIdxInBG = (int) (rangeEndInBlockGroup / cellSize);
+    int firstCellIdxInBG = static_cast<int>(rangeStartInBlockGroup / cellSize);
+    int lastCellIdxInBG = static_cast<int>(rangeEndInBlockGroup / cellSize);
     int numCells = lastCellIdxInBG - firstCellIdxInBG + 1;
     cells.resize(numCells);
 
-    int firstCellOffset = (int) (rangeStartInBlockGroup % cellSize);
+    int firstCellOffset = static_cast<int>(rangeStartInBlockGroup % cellSize);
     int firstCellSize =
-        (int) std::min(cellSize - (rangeStartInBlockGroup % cellSize), len);
+        static_cast<int>(std::min(cellSize - (rangeStartInBlockGroup % cellSize), len));
 
     cells[0].init(ecPolicy, firstCellSize, firstCellIdxInBG, firstCellOffset);
     if (lastCellIdxInBG != firstCellIdxInBG) {
-        int lastCellSize = (int) (rangeEndInBlockGroup % cellSize) + 1;
+        int lastCellSize = static_cast<int>(rangeEndInBlockGroup % cellSize) + 1;
         cells[numCells - 1].init(ecPolicy, lastCellSize,
             lastCellIdxInBG, 0);
     }
@@ -249,13 +244,13 @@ void StripedBlockUtil::getStripingCellsOfByteRange(ECPolicy* ecPolicy,
     }
 }
 
-void StripedBlockUtil::mergeRangesForInternalBlocks(ECPolicy* ecPolicy, 
-    std::vector<VerticalRange>& ranges, LocatedBlock& blockGroup, 
-    int cellSize, std::vector<AlignedStripe*>& stripes) {
+void StripedBlockUtil::mergeRangesForInternalBlocks(shared_ptr<ECPolicy> ecPolicy, 
+    std::vector<VerticalRange> & ranges, LocatedBlock & blockGroup, 
+    int cellSize, std::vector<AlignedStripe*> & stripes) {
     int dataBlkNum = ecPolicy->getNumDataUnits();
     int parityBlkNum = ecPolicy->getNumParityUnits();
     std::set<long> stripePoints;
-    for (int i = 0; i < (int)ranges.size(); i++) {
+    for (int i = 0; i < static_cast<int>(ranges.size()); i++) {
         VerticalRange & r = ranges[i];
         if (r.spanInBlock != 0) {
             stripePoints.insert(r.offsetInBlock);
@@ -265,7 +260,7 @@ void StripedBlockUtil::mergeRangesForInternalBlocks(ECPolicy* ecPolicy,
 
     // Add block group last cell offset in stripePoints if it is fall in to read
     // offset range.
-    int lastCellIdxInBG = (int) (blockGroup.getNumBytes() / cellSize);
+    int lastCellIdxInBG = static_cast<int>(blockGroup.getNumBytes() / cellSize);
     int idxInInternalBlk = lastCellIdxInBG / ecPolicy->getNumDataUnits();
     long lastCellEndOffset = (idxInInternalBlk * (long)cellSize)
         + (blockGroup.getNumBytes() % cellSize);
@@ -286,15 +281,15 @@ void StripedBlockUtil::mergeRangesForInternalBlocks(ECPolicy* ecPolicy,
     }
 }
 
-void StripedBlockUtil::prepareAllZeroChunks(LocatedBlock &blockGroup,
-    std::vector<AlignedStripe*>& stripes, int cellSize, int dataBlkNum) {
-    for (int i = 0; i < (int)stripes.size(); i++) {
+void StripedBlockUtil::prepareAllZeroChunks(LocatedBlock & blockGroup,
+    std::vector<AlignedStripe*> & stripes, int cellSize, int dataBlkNum) {
+    for (int i = 0; i < static_cast<int>(stripes.size()); i++) {
         AlignedStripe & s = *stripes[i];
         for (int i = 0; i < dataBlkNum; i++) {
             long internalBlkLen = getInternalBlockLength(blockGroup.getNumBytes(),
                 cellSize, dataBlkNum, i);
             if (internalBlkLen <= s.getOffsetInBlock()) {
-                Preconditions::checkState(s.chunks[i] == NULL);
+                Preconditions::checkState(s.chunks[i] == nullptr);
                 s.chunks[i] = new StripingChunk(StripingChunk::ALLZERO);
             }
         }

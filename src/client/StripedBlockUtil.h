@@ -36,9 +36,8 @@
 #include "Logger.h"
 #include "Preconditions.h"
 
-using namespace std;
-using namespace Hdfs::Internal;
 namespace Hdfs {
+namespace Internal {
 class StripedBlockUtil {
 public:
     class VerticalRange {
@@ -73,7 +72,7 @@ public:
                 return pos >= offsetInBlock && pos < offsetInBlock + spanInBlock;
             }
 
-            ostream& operator <<(ostream& outputStream) {
+            ostream & operator <<(ostream & outputStream) {
                 outputStream << "VerticalRange(offsetInBlock=" << offsetInBlock
                     << ", spanInBlock=" << spanInBlock << ")";
                 return outputStream;
@@ -87,11 +86,11 @@ public:
         ChunkByteBuffer() {
         }
 
-        ByteBuffer getSlice(int i) {
+        ByteBuffer getSlice(int i) const {
             return slices[i];
         }
 
-        std::vector<ByteBuffer> getSlices() {
+        std::vector<ByteBuffer> getSlices() const {
             return slices;
         }
 
@@ -106,8 +105,8 @@ public:
             target->clear();
         }
 
-        void copyFrom(ByteBuffer* src) {
-            ByteBuffer* tmp;
+        void copyFrom(ByteBuffer * src) {
+            ByteBuffer * tmp;
             int len;
             for (ByteBuffer slice : slices) {
                 len = slice.remaining();
@@ -126,33 +125,33 @@ public:
         long length;
 
     public:
-        StripeRange(long offsetInBlock, long length) {
+        StripeRange(long offsetInBlock_, long length_) {
             std::stringstream ss;
             ss << "offsetInBlock=" + std::to_string(offsetInBlock)
                 << " length=" + std::to_string(length)
                 << " must be non-negative.";
             Preconditions::checkArgument(offsetInBlock >= 0 && length >= 0, ss.str());
-            this->offsetInBlock = offsetInBlock;
-            this->length = length;
+            offsetInBlock = offsetInBlock_;
+            length = length_;
         }
 
         bool include(long pos) {
             return pos >= offsetInBlock && pos < offsetInBlock + length;
         }
 
-        long getLength() {
+        long getLength() const {
             return length;
         }
 
-        void setLength(long length) {
-            this->length = length;
+        void setLength(long length_) {
+            length = length_;
         }
 
-        void setOffset(long offset) {
-            this->offsetInBlock = offset;
+        void setOffset(long offset_) {
+            offsetInBlock = offset_;
         }
 
-        ostream& operator <<(ostream& outputStream) {
+        ostream & operator <<(ostream & outputStream) {
             outputStream << "StripeRange(offsetInBlock=" << offsetInBlock
                 << ", length=" << length;
             return outputStream;
@@ -189,24 +188,24 @@ public:
          */
         int state = REQUESTED;
 
-        ChunkByteBuffer *chunkBuffer;
+        ChunkByteBuffer * chunkBuffer;
         shared_ptr<ByteBuffer> byteBuffer;
 
     public:
         StripingChunk() {
             chunkBuffer = new ChunkByteBuffer();
-            byteBuffer = NULL;
+            byteBuffer = nullptr;
         }
 
         StripingChunk(shared_ptr<ByteBuffer> buf) {
-            chunkBuffer = NULL;
+            chunkBuffer = nullptr;
             byteBuffer = buf;
         }
 
-        StripingChunk(int state) {
-            chunkBuffer = NULL;
-            byteBuffer = NULL;
-            this->state = state;
+        StripingChunk(int state_) {
+            chunkBuffer = nullptr;
+            byteBuffer = nullptr;
+            state = state_;
         }
 
         ~StripingChunk() {
@@ -217,25 +216,25 @@ public:
         }
 
         bool useByteBuffer(){
-            return byteBuffer != NULL;
+            return byteBuffer != nullptr;
         }
 
         bool useChunkBuffer() {
-            return chunkBuffer != NULL;
+            return chunkBuffer != nullptr;
         }
 
-        ByteBuffer* getByteBuffer() {
+        ByteBuffer * getByteBuffer() const{
             return byteBuffer.get();
         }
 
-        ChunkByteBuffer* getChunkBuffer() {
+        ChunkByteBuffer * getChunkBuffer() const {
             return chunkBuffer;
         }
     };
 
     class AlignedStripe {
     public:
-        VerticalRange *range;
+        VerticalRange * range;
         /** status of each chunk in the stripe. */
         std::vector<StripingChunk*> chunks;
         int fetchedChunksNum = 0;
@@ -249,7 +248,7 @@ public:
         }
 
         ~AlignedStripe() {
-            for (int i = 0; i < (int)chunks.size(); ++i) {
+            for (int i = 0; i < static_cast<int>(chunks.size()); ++i) {
                 if (chunks[i] != nullptr) {
                     delete chunks[i];
                     chunks[i] = nullptr;
@@ -266,15 +265,15 @@ public:
             return range->include(pos);
         }
 
-        long getOffsetInBlock() {
+        long getOffsetInBlock() const {
             return range->offsetInBlock;
         }
 
-        long getSpanInBlock() {
+        long getSpanInBlock() const {
             return range->spanInBlock;
         }
 
-        ostream& operator <<(ostream& outputStream) {
+        ostream & operator <<(ostream & outputStream) {
             outputStream << "AlignedStripe(Offset=" << range->offsetInBlock << ", length=" <<
                 range->spanInBlock << ", fetchedChunksNum=" << fetchedChunksNum <<
                 ", missingChunksNum=" << missingChunksNum << ")";
@@ -285,30 +284,30 @@ public:
     class BlockReadStats {
     private:
         int bytesRead;
-        bool isShortCircuit_;
+        bool shortCircuit;
         int networkDistance;
 
     public:
-        BlockReadStats(int numBytesRead, bool shortCircuit, int distance) {
+        BlockReadStats(int numBytesRead, bool shortCircuit_, int distance) {
             bytesRead = numBytesRead;
-            isShortCircuit_ = shortCircuit;
+            shortCircuit = shortCircuit_;
             networkDistance = distance;
         }
 
-        int getBytesRead() {
+        int getBytesRead() const {
             return bytesRead;
         }
 
-        bool isShortCircuit() {
-            return isShortCircuit_;
+        bool isShortCircuit() const {
+            return shortCircuit;
         }
 
-        int getNetworkDistance() {
+        int getNetworkDistance() const {
             return networkDistance;
         }
 
-        ostream& operator <<(ostream& outputStream) {
-            outputStream << "bytesRead=" << bytesRead << ", isShortCircuit=" << isShortCircuit_
+        ostream & operator <<(ostream & outputStream) {
+            outputStream << "bytesRead=" << bytesRead << ", isShortCircuit=" << shortCircuit
                 << ", networkDistance=" << networkDistance;
             return outputStream;
         }
@@ -316,7 +315,7 @@ public:
 
     class StripingCell {
     public:
-        ECPolicy* ecPolicy;
+        shared_ptr<ECPolicy> ecPolicy;
         /** Logical order in a block group, used when doing I/O to a block group. */
         long idxInBlkGroup;
         long idxInInternalBlk;
@@ -330,35 +329,35 @@ public:
         long offset;
         int size;
 
-        StripingCell() {}
+        StripingCell() = default;
 
-        StripingCell(ECPolicy* ecPolicy, int cellSize, long idxInBlkGroup,
+        StripingCell(shared_ptr<ECPolicy> ecPolicy, int cellSize, long idxInBlkGroup,
             long cellOffset) {
             ecPolicy = ecPolicy;
             idxInBlkGroup = idxInBlkGroup;
             idxInInternalBlk = idxInBlkGroup / ecPolicy->getNumDataUnits();
-            idxInStripe = (int)(idxInBlkGroup -
+            idxInStripe = static_cast<int>(idxInBlkGroup -
                 idxInInternalBlk * ecPolicy->getNumDataUnits());
             offset = cellOffset;
             size = cellSize;
         }
 
-        void init(ECPolicy* ecPolicy, int cellSize, long idxInBlkGroup,
+        void init(shared_ptr<ECPolicy> ecPolicy, int cellSize, long idxInBlkGroup,
             long cellOffset) {
             ecPolicy = ecPolicy;
             idxInBlkGroup = idxInBlkGroup;
             idxInInternalBlk = idxInBlkGroup / ecPolicy->getNumDataUnits();
-            idxInStripe = (int)(idxInBlkGroup -
+            idxInStripe = static_cast<int>(idxInBlkGroup -
                 idxInInternalBlk * ecPolicy->getNumDataUnits());
             offset = cellOffset;
             size = cellSize;
         }
 
-        int getIdxInStripe() {
+        int getIdxInStripe() const {
             return idxInStripe;
         }
 
-        ostream& operator <<(ostream& outputStream) {
+        ostream & operator <<(ostream & outputStream) {
             outputStream << "StripingCell(idxInBlkGroup=" << idxInBlkGroup
                 << ", idxInInternalBlk=" << idxInInternalBlk
                 << ", idxInStrip=" << idxInStripe
@@ -378,7 +377,7 @@ public:
         int state;
 
     private:
-        BlockReadStats *readStats;
+        BlockReadStats * readStats;
 
     public:
         StripingChunkReadResult(int state_) {
@@ -386,38 +385,38 @@ public:
                 "Only timeout result should return negative index.");
             index = -1;
             state = state_;
-            readStats = NULL;
+            readStats = nullptr;
         }
 
         StripingChunkReadResult(int index, int state) {
-            StripingChunkReadResult(index, state, NULL);
+            StripingChunkReadResult(index, state, nullptr);
         }
 
-        StripingChunkReadResult(int index, int state, BlockReadStats* stats) {
+        StripingChunkReadResult(int index_, int state_, BlockReadStats * stats_) {
             Preconditions::checkArgument(state != TIMEOUT,
                 "Timeout result should return negative index.");
-            this->index = index;
-            this->state = state;
-            this->readStats = stats;
+            index = index_;
+            state = state_;
+            readStats = stats_;
         }
 
-        BlockReadStats* getReadStats() {
+        BlockReadStats * getReadStats() const {
             return readStats;
         }
 
-        void setIndex(int index) {
-            this->index = index;
+        void setIndex(int index_) {
+            index = index_;
         }
 
-        void setState(int state) {
-            this->state = state;
+        void setState(int state_) {
+            state = state_;
         }
 
-        void setReadStats(BlockReadStats* readStats) {
-            this->readStats = readStats;
+        void setReadStats(BlockReadStats * readStats_) {
+            readStats = readStats_;
         }
 
-        ostream& operator <<(ostream& outputStream) {
+        ostream & operator <<(ostream & outputStream) {
             outputStream << "(index=" << index << ", state =" << state
                 << ", readStats =" << readStats << ")";
             return outputStream;
@@ -425,21 +424,17 @@ public:
     };
 
     static void checkBlocks(ExtendedBlock blockGroup, int i, ExtendedBlock blocki);
-    static void constructInternalBlock(LocatedBlock& bg, int32_t idxInReturnedLocs, int32_t cellSize,
-        int32_t dataBlkNum, int32_t idxInBlockGroup, LocatedBlock& lb);
-    static void divideOneStripe(ECPolicy* ecPolicy,
-        int cellSize, LocatedBlock& blockGroup, long rangeStartInBlockGroup,
-        long rangeEndInBlockGroup, ByteBuffer* buf, std::vector<AlignedStripe*>& stripes);
+    static void constructInternalBlock(LocatedBlock & bg, int32_t idxInReturnedLocs, int32_t cellSize,
+        int32_t dataBlkNum, int32_t idxInBlockGroup, LocatedBlock & lb);
+    static void divideOneStripe(shared_ptr<ECPolicy> ecPolicy,
+        int cellSize, LocatedBlock & blockGroup, long rangeStartInBlockGroup,
+        long rangeEndInBlockGroup, ByteBuffer * buf, std::vector<AlignedStripe*> & stripes);
 
-    static long getInternalBlockLength(long dataSize, ECPolicy ecPolicy,
-        int idxInBlockGroup);
     static int64_t getInternalBlockLength(int64_t dataSize, int32_t cellSize,
         int32_t numDataBlocks, int32_t idxInBlockGroup);
     static void getNextCompletedStripedRead(
             std::map<int, std::future<StripedBlockUtil::BlockReadStats>> & futures,
             StripedBlockUtil::StripingChunkReadResult & r);
-
-    static long getSafeLength(ECPolicy ecPolicy, long *blockLens, int blocks);
 
     static long offsetInBlkToOffsetInBG(int cellSize, int dataBlkNum,
         long offsetInBlk, int idxInBlockGroup);
@@ -451,18 +446,18 @@ private:
     /**
      * Cell indexing convention defined in StripingCell.
      */
-    static void getRangesForInternalBlocks(ECPolicy* ecPolicy, int cellSize,
-        std::vector<StripingCell>& cells, std::vector<VerticalRange>& ranges);
-    static void getStripingCellsOfByteRange(ECPolicy* ecPolicy,
-        int cellSize, LocatedBlock& blockGroup,
+    static void getRangesForInternalBlocks(shared_ptr<ECPolicy> ecPolicy, int cellSize,
+        std::vector<StripingCell> & cells, std::vector<VerticalRange> & ranges);
+    static void getStripingCellsOfByteRange(shared_ptr<ECPolicy> ecPolicy,
+        int cellSize, LocatedBlock & blockGroup,
         long rangeStartInBlockGroup, long rangeEndInBlockGroup,
-        std::vector<StripingCell>& cells);
+        std::vector<StripingCell> & cells);
 
     static int lastCellSize(int size, int cellSize, int numDataBlocks, int i) {
         if (i < numDataBlocks) {
             // parity block size (i.e. i >= numDataBlocks) is the same as
             // the first data block size (i.e. i = 0).
-            size -= i*cellSize;
+            size -= (i * cellSize);
             if (size < 0) {
                 size = 0;
             }
@@ -470,14 +465,16 @@ private:
         return size > cellSize? cellSize: size;
     }
 
-    static void mergeRangesForInternalBlocks(ECPolicy* ecPolicy,
-        std::vector<VerticalRange>& ranges, LocatedBlock& blockGroup, 
-        int cellSize, std::vector<AlignedStripe*>& stripes);
+    static void mergeRangesForInternalBlocks(shared_ptr<ECPolicy> ecPolicy,
+        std::vector<VerticalRange> & ranges, LocatedBlock & blockGroup, 
+        int cellSize, std::vector<AlignedStripe*> & stripes);
 
-    static void prepareAllZeroChunks(LocatedBlock& blockGroup,
-        std::vector<AlignedStripe*>& stripes, int cellSize, int dataBlkNum);
+    static void prepareAllZeroChunks(LocatedBlock & blockGroup,
+        std::vector<AlignedStripe*> & stripes, int cellSize, int dataBlkNum);
     
 };
         
 }
+}
+
 #endif /* _HDFS_LIBHDFS3_STRIPED_BLOCK_UTIL_H_ */

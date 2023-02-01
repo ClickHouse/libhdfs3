@@ -69,7 +69,7 @@ public:
                  std::vector<BlockReaderInfo *> & readerInfos,
                  shared_ptr<SessionConfig> c);
     StripeReader(StripedBlockUtil::AlignedStripe & alignedStripe,
-                 ECPolicy * ecPolicy,
+                 shared_ptr<ECPolicy> ecPolicy,
                  std::vector<LocatedBlock> & targetBlocks,
                  std::vector<BlockReaderInfo *> & readerInfos,
                  shared_ptr<CorruptedBlocks> corruptedBlocks,
@@ -189,7 +189,7 @@ protected:
     std::vector<LocatedBlock> & targetBlocks;
     shared_ptr<CorruptedBlocks> corruptedBlocks;
     std::vector<BlockReaderInfo *> & readerInfos;
-    ECPolicy * ecPolicy;
+    shared_ptr<ECPolicy> ecPolicy;
     shared_ptr<RawErasureDecoder> decoder;
     StripedInputStreamImpl * dfsStripedInputStream;
     std::vector<std::shared_ptr<ECChunk>> decodeInputs;

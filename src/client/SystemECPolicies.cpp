@@ -30,14 +30,20 @@ namespace Internal {
 std::shared_mutex SystemECPolicies::mutex;
 
 SystemECPolicies::SystemECPolicies() {
-    replicationPolicy = new ECPolicy(REPLICATION, cellsize, 1, 2, "REPLICATION");
-    sysPolicy1 = new ECPolicy(RS_6_3, cellsize, 6, 3, "RS");
-    sysPolicy2 = new ECPolicy(RS_3_2, cellsize, 3, 2, "RS");
-    sysPolicy3 = new ECPolicy(RS_6_3_LEGACY, cellsize, 6, 3, "RS-LEGACY");
-    sysPolicy4 = new ECPolicy(XOR_2_1, cellsize, 2, 1, "XOR");
-    sysPolicy5 = new ECPolicy(RS_10_4, cellsize, 10, 4, "RS");
+    shared_ptr<ECPolicy> replicationPolicy = shared_ptr<ECPolicy>(
+        new ECPolicy(REPLICATION, cellsize, 1, 2, "REPLICATION"));
+    shared_ptr<ECPolicy> sysPolicy1 = shared_ptr<ECPolicy>(
+        new ECPolicy(RS_6_3, cellsize, 6, 3, "RS"));
+    shared_ptr<ECPolicy> sysPolicy2 = shared_ptr<ECPolicy>(
+        new ECPolicy(RS_3_2, cellsize, 3, 2, "RS"));
+    shared_ptr<ECPolicy> sysPolicy3 = shared_ptr<ECPolicy>(
+        new ECPolicy(RS_6_3_LEGACY, cellsize, 6, 3, "RS-LEGACY"));
+    shared_ptr<ECPolicy> sysPolicy4 = shared_ptr<ECPolicy>(
+        new ECPolicy(XOR_2_1, cellsize, 2, 1, "XOR"));
+    shared_ptr<ECPolicy> sysPolicy5 = shared_ptr<ECPolicy>(
+        new ECPolicy(RS_10_4, cellsize, 10, 4, "RS"));
     sysPolicies = {replicationPolicy, sysPolicy1, sysPolicy2, 
-                   sysPolicy3, sysPolicy4, sysPolicy5 };
+                   sysPolicy3, sysPolicy4, sysPolicy5};
     if (maps.empty()) {
         for (int i = 0; i < (int)sysPolicies.size(); ++i) {
             LOG(DEBUG1, "ecpolicy name=%s\n", sysPolicies[i]->getName());
@@ -46,22 +52,13 @@ SystemECPolicies::SystemECPolicies() {
     }
 }
 
-SystemECPolicies::~SystemECPolicies() {
-    for (int i = 0; i < (int)sysPolicies.size(); ++i) {
-        LOG(DEBUG1, "ecpolicy name=%s\n", sysPolicies[i]->getName());
-        delete sysPolicies[i];
-    }
-}
-
-ECPolicy * SystemECPolicies::getById(int8_t id) {
+shared_ptr<ECPolicy> SystemECPolicies::getById(int8_t id) {
     std::shared_lock<std::shared_mutex> lock(mutex);
-    if (maps.count(id) > 0) {
-        return maps[id];
-    }
-    return nullptr;
+    auto it  = maps.find(id);
+    return it != maps.end() ? it->second : nullptr;
 }
 
-void SystemECPolicies::addEcPolicy(int8_t id, ECPolicy * ecPolicy) {
+void SystemECPolicies::addEcPolicy(int8_t id, shared_ptr<ECPolicy> ecPolicy) {
     std::unique_lock<std::shared_mutex> lock(mutex);
     sysPolicies.push_back(ecPolicy);
     maps.insert(std::make_pair(id, ecPolicy));

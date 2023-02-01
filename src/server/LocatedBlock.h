@@ -45,11 +45,11 @@ namespace Internal {
 class LocatedBlock: public ExtendedBlock {
 public:
     LocatedBlock() :
-        offset(0), corrupt(false) {
+        offset(0), corrupt(false), striped(false) {
     }
 
     LocatedBlock(int64_t position) :
-        offset(position), corrupt(false) {
+        offset(position), corrupt(false), striped(false) {
     }
 
     bool isCorrupt() const {
@@ -105,18 +105,22 @@ public:
     }
 
     void setStriped(bool isStriped) {
-        this->striped = isStriped;
+        striped = isStriped;
     }
 
     bool isStriped() const {
         return striped;
     }
     
-    std::vector<int8_t> & getIndices() {
+    const std::vector<int8_t> & getIndices() const {
         return indices;
     }
-    
-    std::vector<Token> & getTokens() {
+
+    std::vector<int8_t> & mutableIndices() {
+        return indices;
+    }
+
+    std::vector<Token> & mutableTokens() {
         return tokens;
     }
 
@@ -127,7 +131,7 @@ private:
     std::vector<std::string> storageIDs;
     Token token;
     // for ec block
-    bool striped = false;
+    bool striped;
     std::vector<int8_t> indices;
     std::vector<Token> tokens;
 };

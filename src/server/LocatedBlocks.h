@@ -39,7 +39,7 @@ namespace Internal {
 
 class LocatedBlocks {
 public:
-    virtual ~LocatedBlocks() {}
+    virtual ~LocatedBlocks() = default;
 
     virtual int64_t getFileLength() const = 0;
 
@@ -61,9 +61,9 @@ public:
 
     virtual std::vector<LocatedBlock> & getBlocks() = 0;
 
-    virtual ECPolicy * getEcPolicy() const = 0;
+    virtual shared_ptr<ECPolicy> getEcPolicy() const = 0;
 
-    virtual void setEcPolicy(ECPolicy * ecPolicy) = 0;
+    virtual void setEcPolicy(shared_ptr<ECPolicy> ecPolicy) = 0;
 };
 
 /**
@@ -110,12 +110,12 @@ public:
         return blocks;
     }
 
-    ECPolicy * getEcPolicy() const {
+    shared_ptr<ECPolicy> getEcPolicy() const {
         return ecPolicy;
     }
 
-    void setEcPolicy(ECPolicy * ecPolicy) {
-        this->ecPolicy = ecPolicy;
+    void setEcPolicy(shared_ptr<ECPolicy> policy) {
+        ecPolicy = policy;
     }
 
 private:
@@ -125,7 +125,7 @@ private:
     shared_ptr<LocatedBlock> lastBlock;
     std::vector<LocatedBlock> blocks;
     bool isStriped = false;
-    ECPolicy * ecPolicy = nullptr; // free by SystemECPolicies
+    shared_ptr<ECPolicy> ecPolicy = nullptr;
 };
 
 }
