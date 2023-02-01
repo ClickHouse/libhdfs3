@@ -24,14 +24,11 @@
 #include "RSUtil.h"
 
 #include <algorithm>
-#include <iostream>
 
-using namespace Hdfs;
-using namespace Hdfs::Internal;
 namespace Hdfs {
 namespace Internal {
 
-void RSUtil::initTables(int k, int rows, std::vector<int8_t> & codingMatrix,
+void RSUtil::initTables(int k, int rows, const std::vector<int8_t> & codingMatrix,
                         int matrixOffset, std::vector<int8_t> & gfTables) {
     int i, j;
 
@@ -57,35 +54,34 @@ void RSUtil::genCauchyMatrix(std::vector<int8_t> & a, int m, int k) {
     int pos = k * k;
     for (int i = k; i < m; i++) {
         for (int j = 0; j < k; j++) {
-            a[pos++] = GF256::gfInv((int8_t) (i ^ j));
+            a[pos++] = GF256::gfInv(static_cast<int8_t>(i ^ j));
         }
     } 
 }
 
-void RSUtil::encodeData(std::vector<int8_t> & gfTables,
-                        std::vector<std::shared_ptr<ByteBuffer>> & inputs,
-                        std::vector<std::shared_ptr<ByteBuffer>> & outputs) {
-    int numInputs = inputs.size();
-    int numOutputs = outputs.size();
-    int dataLen = inputs[0]->remaining();
+void RSUtil::encodeData(const std::vector<int8_t> & gfTables,
+                        const std::vector<shared_ptr<ByteBuffer>> & inputs,
+                        const std::vector<shared_ptr<ByteBuffer>> & outputs) {
+    int numInputs = static_cast<int>(inputs.size());
+    int numOutputs = static_cast<int>(outputs.size());
+    int dataLen = static_cast<int>(inputs[0]->remaining());
     int l, i, j, iPos, oPos;
-    ByteBuffer *input, *output;
+    shared_ptr<ByteBuffer> input, output;
     int8_t s;
     const int times = dataLen / 8;
     const int extra = dataLen - dataLen % 8;
-    std::vector<int8_t> tableLine;
-    std::vector< std::vector<int8_t> > & gf256_multable = GF256::getInstance();
+    const std::vector< std::vector<int8_t> > & gf256_multable = GF256::getInstance();
     for (l = 0; l < numOutputs; l++) {
-        output = outputs[l].get();
+        output = outputs[l];
 
         for (j = 0; j < numInputs; j++) {
-            input = inputs[j].get();
-            iPos = input->position();
-            oPos = output->position();
-            int mark = output->position();
+            input = inputs[j];
+            iPos = static_cast<int>(input->position());
+            oPos = static_cast<int>(output->position());
+            int mark = static_cast<int>(output->position());
 
             s = gfTables[j * 32 + l * numInputs * 32 + 1];
-            std::vector<int8_t> & tableLine = gf256_multable[s & 0xff];
+            const std::vector<int8_t> & tableLine = gf256_multable[s & 0xff];
 
             for (i = 0; i < times; i++, iPos += 8, oPos += 8) {
                 output->putInt8_t(output->getInt8_t(oPos + 0) ^

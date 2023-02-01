@@ -36,23 +36,19 @@ namespace Internal {
 
 class RSUtil {
 public:
-    RSUtil();
 
-    static void encodeData(std::vector<int8_t> & gfTables,
-                           std::vector<std::shared_ptr<ByteBuffer>> & inputs,
-                           std::vector<std::shared_ptr<ByteBuffer>> & outputs);
+    static void encodeData(const std::vector<int8_t> & gfTables,
+                           const std::vector<shared_ptr<ByteBuffer>> & inputs,
+                           const std::vector<shared_ptr<ByteBuffer>> & outputs);
 
-    static void initTables(int k, int rows, std::vector<int8_t> & codingMatrix,
+    static void initTables(int k, int rows, const std::vector<int8_t> & codingMatrix,
                            int matrixOffset, std::vector<int8_t> & gfTables);
+
     static void genCauchyMatrix(std::vector<int8_t> & a, int m, int k);
 
-    static std::shared_ptr<GaloisField> getGF() {
+    static shared_ptr<GaloisField> getGF() {
         return GaloisField::getInstance();
     }
-
-public:
-    static const int PRIMITIVE_ROOT = 2;   
-
 };
 
 }

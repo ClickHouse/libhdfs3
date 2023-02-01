@@ -22,61 +22,37 @@
 
 #include "ECChunk.h"
 
-using namespace Hdfs;
-using namespace Hdfs::Internal;
-
 namespace Hdfs {
 namespace Internal {
 
-/**
- * Wrapping a bytes array
- * @param buffer buffer to be wrapped by the chunk
-*/
-ECChunk::ECChunk(std::vector<int8_t> buffer) {
-    this->chunkBuffer = std::shared_ptr<ByteBuffer>(new ByteBuffer(&buffer[0], buffer.size()));
+ECChunk::ECChunk(shared_ptr<ByteBuffer> buffer) : allZero(false) {
+    chunkBuffer = buffer;
 }
 
-
-ECChunk::ECChunk(std::vector<int8_t> buffer, int offset, int len) {
-    this->chunkBuffer = std::shared_ptr<ByteBuffer>(new ByteBuffer(&buffer[0], buffer.size()));
-    this->chunkBuffer->position(offset);
-    this->chunkBuffer->limit(offset + len);
-}
-
-ECChunk::ECChunk(std::shared_ptr<ByteBuffer> buffer) {
-    this->chunkBuffer = buffer;
-}
-
-
-ECChunk::ECChunk(std::shared_ptr<ByteBuffer> buffer, int offset, int len) {
-    std::shared_ptr<ByteBuffer> tmp = std::shared_ptr<ByteBuffer>(buffer->duplicate());
+ECChunk::ECChunk(const shared_ptr<ByteBuffer> & buffer, int offset, int len) : allZero(false) {
+    shared_ptr<ByteBuffer> tmp = shared_ptr<ByteBuffer>(buffer->duplicate());
     tmp->position(offset);
     tmp->limit(offset + len);
-    this->chunkBuffer = std::shared_ptr<ByteBuffer>(tmp->slice());
+    chunkBuffer = shared_ptr<ByteBuffer>(tmp->slice());
 }
 
-ECChunk::~ECChunk() {
-
-}
-
-std::shared_ptr<ByteBuffer> ECChunk::getBuffer() {
+shared_ptr<ByteBuffer> ECChunk::getBuffer() const {
     return chunkBuffer;
 }
 
-
-bool ECChunk::isAllZero() {
+bool ECChunk::isAllZero() const {
     return allZero;
 }
 
-void ECChunk::setAllZero(bool allZero) {
-    this->allZero = allZero;
+void ECChunk::setAllZero(bool _allZero) {
+    allZero = _allZero;
 }
 
 /**
  * Convert to a bytes array, just for test usage.
  * @return bytes array
-*/
-std::vector<int8_t> ECChunk::toBytesArray() {
+ */
+std::vector<int8_t> ECChunk::toBytesArray() const {
     std::vector<int8_t> bytesArr(chunkBuffer->remaining());
     // Avoid affecting the original one
     chunkBuffer->mark();

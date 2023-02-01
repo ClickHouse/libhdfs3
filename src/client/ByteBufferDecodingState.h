@@ -27,14 +27,12 @@
 #include "RSUtil.h"
 #include "Exception.h"
 #include "ExceptionInternal.h"
+#include "Memory.h"
 
 #include <iostream>
 #include <algorithm>
 #include <memory>
 #include <vector>
-
-using namespace Hdfs;
-using namespace Hdfs::Internal;
 
 namespace Hdfs {
 namespace Internal {
@@ -48,25 +46,14 @@ class RawErasureDecoder;
 class ByteBufferDecodingState {
 
 public:
-    ByteBufferDecodingState(RawErasureDecoder* decoder,
-                            std::vector<std::shared_ptr<ByteBuffer>> & inputs,
+    ByteBufferDecodingState(std::vector<shared_ptr<ByteBuffer>> & inputs,
                             std::vector<int> & erasedIndexes,
-                            std::vector<std::shared_ptr<ByteBuffer>> & outputs);
-
-    ByteBufferDecodingState(RawErasureDecoder* decoder,
-                            int decodeLength,
-                            std::vector<int> & erasedIndexes,
-                            std::vector<std::shared_ptr<ByteBuffer>> & inputs,
-                            std::vector<std::shared_ptr<ByteBuffer>> & outputs);
-
-    void checkInputBuffers(std::vector<std::shared_ptr<ByteBuffer>> & buffers);
-    void checkOutputBuffers(std::vector<std::shared_ptr<ByteBuffer>> & buffers);
+                            std::vector<shared_ptr<ByteBuffer>> & outputs);
 
 public:
-    std::vector<std::shared_ptr<ByteBuffer>> & inputs;
-    std::vector<std::shared_ptr<ByteBuffer>> & outputs;
+    std::vector<shared_ptr<ByteBuffer>> & inputs;
+    std::vector<shared_ptr<ByteBuffer>> & outputs;
     std::vector<int> & erasedIndexes;
-    RawErasureDecoder* decoder;
     int decodeLength;
 };
 

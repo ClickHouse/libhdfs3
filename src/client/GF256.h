@@ -32,7 +32,7 @@ namespace Internal {
 
 class GF256 {
     class GfMulTab {
-    public:
+    private:
         GfMulTab() {
             innerGfMulTab = std::vector<std::vector<int8_t>>(256);
             for (int i = 0; i < 256; i++) {
@@ -42,25 +42,23 @@ class GF256 {
                 }
             }
         }
-        std::vector<std::vector<int8_t>> & getInnerGfMulTab() {
+        const std::vector<std::vector<int8_t>> & getInnerGfMulTab() const {
             return innerGfMulTab;
         }
-    private:
+
         std::vector<std::vector<int8_t>> innerGfMulTab;
     };
 
 public:
-    GF256(/* args */);
+    GF256(/* args */) = default;
     static int8_t gfInv(int8_t a);
     static void gfInvertMatrix(std::vector<int8_t> & inMatrix, std::vector<int8_t> & outMatrix, int n);
     static int8_t gfMul(int8_t a, int8_t b);
     static void gfVectMulInit(int8_t c, std::vector<int8_t> & tbl, int offset);
-    static void initTheGfMulTab(std::vector<std::vector<int8_t>> & theGfMulTab);
 
-    static std::vector<std::vector<int8_t>> & getInstance();
+    static const std::vector<std::vector<int8_t>> & getInstance();
     static std::vector<int8_t> GF_BASE;
     static std::vector<int8_t> GF_LOG_BASE;
-
 };
 
 }

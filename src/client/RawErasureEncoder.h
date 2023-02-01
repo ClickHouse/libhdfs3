@@ -34,24 +34,20 @@ namespace Internal {
 class RawErasureEncoder {
 public:
     RawErasureEncoder();
-    RawErasureEncoder(ErasureCoderOptions & coderOptions);
-    ~RawErasureEncoder();
+    explicit RawErasureEncoder(ErasureCoderOptions & coderOptions);
+    ~RawErasureEncoder() = default;
 
-    void doEncode(ByteBufferEncodingState* encodingState);
+    void doEncode(const shared_ptr<ByteBufferEncodingState> & encodingState) const;
 
     void encode(std::vector<shared_ptr<ByteBuffer>> & inputs,
-                std::vector<shared_ptr<ByteBuffer>> & outputs);
+                std::vector<shared_ptr<ByteBuffer>> & outputs) const;
 
-    void encode(std::vector<std::shared_ptr<ECChunk>> & inputs,
-                std::vector<std::shared_ptr<ECChunk>> & outputs);
+    void encode(std::vector<shared_ptr<ECChunk>> & inputs,
+                std::vector<shared_ptr<ECChunk>> & outputs) const;
 
-    int getNumDataUnits();
-    int getNumParityUnits();
-    int getNumAllUnits();
-    bool preferDirectBuffer();
-    bool allowChangeInputs();
-    bool allowVerboseDump();
-    void release();
+    int getNumDataUnits() const;
+    int getNumParityUnits() const;
+    int getNumAllUnits() const;
 
 public:
 

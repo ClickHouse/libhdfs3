@@ -27,19 +27,16 @@
 #include "RSUtil.h"
 #include "CoderUtil.h"
 
-#include <iostream>
 #include <future>
 
-using namespace Hdfs;
-using namespace Hdfs::Internal;
 namespace Hdfs {
 namespace Internal {
 
-RawErasureDecoder::RawErasureDecoder() : coderOptions(6, 3) {
+RawErasureDecoder::RawErasureDecoder() : coderOptions(6, 3), numErasedDataUnits(0) {
 }
 
 RawErasureDecoder::RawErasureDecoder(ErasureCoderOptions & coderOptions) :
-    coderOptions(coderOptions) {
+    coderOptions(coderOptions), numErasedDataUnits(0) {
     int numAllUnits = getNumAllUnits();
     if (getNumAllUnits() >= RSUtil::getGF()->getFieldSize()) {
         THROW(InvalidParameter, "Invalid getNumDataUnits() and numParityUnits");
@@ -49,74 +46,32 @@ RawErasureDecoder::RawErasureDecoder(ErasureCoderOptions & coderOptions) :
     RSUtil::genCauchyMatrix(encodeMatrix, numAllUnits, getNumDataUnits());
 }
 
-RawErasureDecoder::~RawErasureDecoder() {
-}
-
-int RawErasureDecoder::getNumParityUnits() {
-    return coderOptions.getNumParityUnits();
-}
-
-int RawErasureDecoder::getNumDataUnits() {
+int RawErasureDecoder::getNumDataUnits() const {
     return coderOptions.getNumDataUnits();
 }
 
 
-int RawErasureDecoder::getNumAllUnits() {
+int RawErasureDecoder::getNumAllUnits() const {
     return coderOptions.getNumAllUnits();
 }
 
-/**
- * Tell if direct buffer is preferred or not. It's for callers to
- * decide how to allocate coding chunk buffers, using DirectByteBuffer or
- * bytes array. It will return false by default.
- * @return true if native buffer is preferred for performance consideration,
- * otherwise false.
- */
-bool RawErasureDecoder::preferDirectBuffer() {
-    return false;
-}
-
-/**
- * Allow change into input buffers or not while perform encoding/decoding.
- * @return true if it's allowed to change inputs, false otherwise
- */
-bool RawErasureDecoder::allowChangeInputs() {
-    return coderOptions.allowChangeInputs();
-}
-
-/**
- * Allow to dump verbose info during encoding/decoding.
- * @return true if it's allowed to do verbose dump, false otherwise.
- */
-bool RawErasureDecoder::allowVerboseDump() {
-    return coderOptions.allowVerboseDump();
-}
-
-/**
- * Should be called when release this coder. Good chance to release encoding
- * or decoding buffers
- */
-void RawErasureDecoder::release() {
-    // Nothing to do here.
-}
-
-void RawErasureDecoder::doDecode(ByteBufferDecodingState* decodingState) {
+void RawErasureDecoder::doDecode(const shared_ptr<ByteBufferDecodingState> & decodingState) {
     CoderUtil::resetOutputBuffers(decodingState->outputs, decodingState->decodeLength);
     prepareDecoding(decodingState->inputs, decodingState->erasedIndexes);
 
-    std::vector<std::shared_ptr<ByteBuffer>> realInputs(getNumDataUnits());
+    std::vector<shared_ptr<ByteBuffer>> realInputs(getNumDataUnits());
     for (int i = 0; i < getNumDataUnits(); i++) {
-        realInputs[i] = std::shared_ptr<ByteBuffer>(decodingState->inputs[validIndexes[i]]);
+        realInputs[i] = shared_ptr<ByteBuffer>(decodingState->inputs[validIndexes[i]]);
     }
     RSUtil::encodeData(gfTables, realInputs, decodingState->outputs);
 }
 
-void RawErasureDecoder::decode(std::vector<std::shared_ptr<ByteBuffer>> & inputs,
+void RawErasureDecoder::decode(std::vector<shared_ptr<ByteBuffer>> & inputs,
                                std::vector<int> & erasedIndexes,
-                               std::vector<std::shared_ptr<ByteBuffer>> & outputs) {
+                               std::vector<shared_ptr<ByteBuffer>> & outputs) {
 
     shared_ptr<ByteBufferDecodingState> decodingState = shared_ptr<ByteBufferDecodingState>(
-        new ByteBufferDecodingState(this, inputs, erasedIndexes, outputs));
+        new ByteBufferDecodingState(inputs, erasedIndexes, outputs));
     
     int dataLen = decodingState->decodeLength;
     if (dataLen == 0) {
@@ -124,14 +79,14 @@ void RawErasureDecoder::decode(std::vector<std::shared_ptr<ByteBuffer>> & inputs
     }
 
     std::vector<int> inputPositions(inputs.size());
-    for (int i = 0; i < (int)inputPositions.size(); i++) {
+    for (int i = 0; i < static_cast<int>(inputPositions.size()); i++) {
         if (inputs[i]) {
-            inputPositions[i] = inputs[i]->position();
+            inputPositions[i] = static_cast<int>(inputs[i]->position());
         }
     }
 
-    doDecode(decodingState.get());
-    for (int i = 0; i < (int)inputs.size(); i++) {
+    doDecode(decodingState);
+    for (int i = 0; i < static_cast<int>(inputs.size()); i++) {
         if (inputs[i]) {
             // dataLen bytes consumed
             inputs[i]->position(inputPositions[i] + dataLen);
@@ -139,28 +94,27 @@ void RawErasureDecoder::decode(std::vector<std::shared_ptr<ByteBuffer>> & inputs
     }
 }
 
-void RawErasureDecoder::decode(std::vector<std::shared_ptr<ECChunk>> & inputs,
+void RawErasureDecoder::decode(std::vector<shared_ptr<ECChunk>> & inputs,
                                std::vector<int> & erasedIndexes,
-                               std::vector<std::shared_ptr<ECChunk>> & outputs) {
+                               std::vector<shared_ptr<ECChunk>> & outputs) {
 
-    std::vector<std::shared_ptr<ByteBuffer>> newInputs = CoderUtil::toBuffers(inputs);
-    std::vector<std::shared_ptr<ByteBuffer>> newOutputs = CoderUtil::toBuffers(outputs);
+    std::vector<shared_ptr<ByteBuffer>> newInputs = CoderUtil::toBuffers(inputs);
+    std::vector<shared_ptr<ByteBuffer>> newOutputs = CoderUtil::toBuffers(outputs);
     decode(newInputs, erasedIndexes, newOutputs); 
 }
 
-void RawErasureDecoder::prepareDecoding(std::vector<std::shared_ptr<ByteBuffer>> & inputs, vector<int> & erasedIndexes) {
+void RawErasureDecoder::prepareDecoding(const std::vector<shared_ptr<ByteBuffer>> & inputs, const vector<int> & erasedIndexes) {
     vector<int> tmpValidIndexes = CoderUtil::getValidIndexes(inputs);
-    if (this->cachedErasedIndexes == erasedIndexes &&
-        this->validIndexes == tmpValidIndexes) {
+    if (cachedErasedIndexes == erasedIndexes && validIndexes == tmpValidIndexes) {
         return; // Optimization. Nothing to do
     }
-    this->cachedErasedIndexes = CoderUtil::copyOf(erasedIndexes, erasedIndexes.size());
-    this->validIndexes = CoderUtil::copyOf(tmpValidIndexes, tmpValidIndexes.size());
+    cachedErasedIndexes = CoderUtil::copyOf(erasedIndexes, static_cast<int>(erasedIndexes.size()));
+    validIndexes = CoderUtil::copyOf(tmpValidIndexes, static_cast<int>(tmpValidIndexes.size()));
 
     processErasures(erasedIndexes);
 }
 
-void RawErasureDecoder::generateDecodeMatrix(std::vector<int> & erasedIndexes) {
+void RawErasureDecoder::generateDecodeMatrix(const std::vector<int> & erasedIndexes) {
     int i, j, r, p;
     int8_t s;
     std::vector<int8_t> tmpMatrix(getNumAllUnits() * getNumDataUnits());
@@ -181,7 +135,7 @@ void RawErasureDecoder::generateDecodeMatrix(std::vector<int> & erasedIndexes) {
         }
     }
 
-    for (p = numErasedDataUnits; p < (int)erasedIndexes.size(); p++) {
+    for (p = numErasedDataUnits; p < static_cast<int>(erasedIndexes.size()); p++) {
         for (i = 0; i < getNumDataUnits(); i++) {
             s = 0;
             for (j = 0; j < getNumDataUnits(); j++) {
@@ -193,16 +147,15 @@ void RawErasureDecoder::generateDecodeMatrix(std::vector<int> & erasedIndexes) {
     }
 }
 
-void RawErasureDecoder::processErasures(std::vector<int> & erasedIndexes) {
-    this->decodeMatrix = std::vector<int8_t>(this->getNumAllUnits() * getNumDataUnits());
-    this->invertMatrix = std::vector<int8_t>(getNumAllUnits() * getNumDataUnits());
-    this->gfTables = std::vector<int8_t>(getNumAllUnits() * getNumDataUnits() * 32);
+void RawErasureDecoder::processErasures(const std::vector<int> & erasedIndexes) {
+    decodeMatrix = std::vector<int8_t>(getNumAllUnits() * getNumDataUnits());
+    invertMatrix = std::vector<int8_t>(getNumAllUnits() * getNumDataUnits());
+    gfTables = std::vector<int8_t>(getNumAllUnits() * getNumDataUnits() * 32);
 
-    this->erasureFlags = std::deque<bool>(getNumAllUnits());
-    this->numErasedDataUnits = 0;
+    erasureFlags = std::deque<bool>(getNumAllUnits());
+    numErasedDataUnits = 0;
 
-    for (int i = 0; i < (int)erasedIndexes.size(); i++) {
-        int index = erasedIndexes[i];
+    for (int index : erasedIndexes) {
         erasureFlags[index] = true;
         if (index < getNumDataUnits()) {
             numErasedDataUnits++;
@@ -211,7 +164,7 @@ void RawErasureDecoder::processErasures(std::vector<int> & erasedIndexes) {
 
     generateDecodeMatrix(erasedIndexes);
 
-    RSUtil::initTables(getNumDataUnits(), erasedIndexes.size(),
+    RSUtil::initTables(getNumDataUnits(), static_cast<int>(erasedIndexes.size()),
         decodeMatrix, 0, gfTables);
 }
 

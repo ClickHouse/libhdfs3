@@ -27,11 +27,9 @@
 #include "CoderUtil.h"
 #include "Exception.h"
 #include "ExceptionInternal.h"
+#include "Memory.h"
 
 #include <vector>
-
-using namespace Hdfs;
-using namespace Hdfs::Internal;
 
 namespace Hdfs {
 namespace Internal {
@@ -44,22 +42,12 @@ class RawErasureEncoder;
  */
 class ByteBufferEncodingState {
 public:
-    ByteBufferEncodingState();
-    ByteBufferEncodingState(RawErasureEncoder* encoder,
-                            std::vector<std::shared_ptr<ByteBuffer>> & inputs,
-                            std::vector<std::shared_ptr<ByteBuffer>> & outputs);
-
-    ByteBufferEncodingState(RawErasureEncoder* encoder,
-                            int encodeLength,
-                            std::vector<std::shared_ptr<ByteBuffer>> & inputs,
-                            std::vector<std::shared_ptr<ByteBuffer>> & outputs);
-
-    void checkBuffers(std::vector<std::shared_ptr<ByteBuffer>> & buffers);
+    ByteBufferEncodingState(std::vector<shared_ptr<ByteBuffer>> & inputs,
+                            std::vector<shared_ptr<ByteBuffer>> & outputs);
 
 public:
-    std::vector<std::shared_ptr<ByteBuffer>> & inputs;
-    std::vector<std::shared_ptr<ByteBuffer>> & outputs;
-    RawErasureEncoder* encoder;
+    std::vector<shared_ptr<ByteBuffer>> & inputs;
+    std::vector<shared_ptr<ByteBuffer>> & outputs;
     int encodeLength;
 };
 

@@ -27,27 +27,20 @@
 #include <string>
 #include <vector>
 
-using namespace std;
 namespace Hdfs {
 namespace Internal {
 
 class ErasureCoderOptions {
 public:
-    ErasureCoderOptions(int numDataUnits, int numParityUnits);
-    ErasureCoderOptions(int numDataUnits, int numParityUnits,
-                        bool allowChangeInputs, bool allowVerboseDump);
-    int getNumDataUnits();
-    int getNumParityUnits();
-    int getNumAllUnits();
-    bool allowChangeInputs();
-    bool allowVerboseDump();
+    ErasureCoderOptions(int _numDataUnits, int _numParityUnits);
+    int getNumDataUnits() const;
+    int getNumParityUnits() const;
+    int getNumAllUnits() const;
 
 public:
     int numDataUnits;
     int numParityUnits;
     int numAllUnits;
-    bool AllowChangeInputs;
-    bool AllowVerboseDump;
 };
 
 }

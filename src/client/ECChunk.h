@@ -24,6 +24,7 @@
 #define _HDFS_LIBHDFS3_ECCHUNK_H_
 
 #include "ByteBuffer.h"
+#include "Memory.h"
 
 #include <vector>
 #include <memory>
@@ -33,25 +34,21 @@ namespace Internal {
 
 class ECChunk {
 private:
-    std::shared_ptr<ByteBuffer> chunkBuffer;
-    bool allZero = false;
+    shared_ptr<ByteBuffer> chunkBuffer;
+    bool allZero;
 
 public:
-    ECChunk();
-    ECChunk(std::vector<int8_t> buffer);
-    ECChunk(std::vector<int8_t> buffer, int offset, int len);
-    ECChunk(std::shared_ptr<ByteBuffer> buffer);
-    ECChunk(std::shared_ptr<ByteBuffer> buffer, int offset, int len);
-    ~ECChunk();
+    explicit ECChunk(shared_ptr<ByteBuffer> buffer);
+    ECChunk(const shared_ptr<ByteBuffer> & buffer, int offset, int len);
+    ~ECChunk() = default;
     
-    bool isAllZero();
-    void setAllZero(bool allZero);
-    std::shared_ptr<ByteBuffer> getBuffer();
-    std::vector<int8_t> toBytesArray();
+    bool isAllZero() const;
+    void setAllZero(bool _allZero);
+    shared_ptr<ByteBuffer> getBuffer() const;
+    std::vector<int8_t> toBytesArray() const;
 };
 
 }
 }
-
 
 #endif /* _HDFS_LIBHDFS3_ECCHUNK_H_ */
