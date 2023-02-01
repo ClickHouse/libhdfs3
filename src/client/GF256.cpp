@@ -21,10 +21,8 @@
  */
 
 #include "GF256.h"
-
-using namespace Hdfs;
-using namespace Hdfs::Internal;
-
+#include "Exception.h"
+#include "ExceptionInternal.h"
 
 namespace Hdfs {
 namespace Internal {
@@ -152,43 +150,10 @@ int8_t GF256::gfMul(int8_t a, int8_t b) {
     return GF_BASE[tmp];
 }
 
-std::vector<std::vector<int8_t>> initGfMulTab(){
-    std::vector<std::vector<int8_t>> res(256);
-    for (int i = 0; i < 256; i++) {
-        res[i].resize(256);
-        for (int j = 0; j < 256; j++) {
-            res[i][j] = GF256::gfMul((int8_t) i, (int8_t) j);
-        }
-    }
-    return res;
-}
-
-std::vector<std::vector<int8_t>> & GF256::getInstance()
-{
+const std::vector<std::vector<int8_t>> & GF256::getInstance() {
     static GfMulTab gfMulTab;
     return gfMulTab.getInnerGfMulTab();
 }
-
-GF256::GF256(/* args */) { 
-}
-
-
-void GF256::initTheGfMulTab(std::vector< std::vector<int8_t> > & theGfMulTab) {
-    if (theGfMulTab.size() > 0) {
-        return;
-    }
-    theGfMulTab.resize(256);
-    for (int k = 0; k < 256; ++k) {
-        theGfMulTab[k].resize(256);
-    }
-    
-    for (int i = 0; i < 256; i++) {
-        for (int j = 0; j < 256; j++) {
-            theGfMulTab[i][j] = gfMul((int8_t) i, (int8_t) j);
-        }
-    }
-}
-
 
 int8_t GF256::gfInv(int8_t a) {
     if (a == 0) {
@@ -226,9 +191,9 @@ void GF256::gfInvertMatrix(std::vector<int8_t> & inMatrix,
                     break;
                 }
             }
-            if (j == n) {
+            if (j == n) [[unlikely]] {
                 // Couldn't find means it's singular
-                throw "Not invertible";
+                THROW(HdfsException ,"Not invertible");
             }
 
             for (int k = 0; k < n; k++) {
@@ -272,26 +237,26 @@ void GF256::gfInvertMatrix(std::vector<int8_t> & inMatrix,
  * ... , A{f0} } -- from ISA-L implementation
  */
 void GF256::gfVectMulInit(int8_t c, std::vector<int8_t> & tbl, int offset) {
-    int8_t c2 = (int8_t) ((c << 1) ^ ((c & 0x80) != 0 ? 0x1d : 0));
-    int8_t c4 = (int8_t) ((c2 << 1) ^ ((c2 & 0x80) != 0 ? 0x1d : 0));
-    int8_t c8 = (int8_t) ((c4 << 1) ^ ((c4 & 0x80) != 0 ? 0x1d : 0));
+    auto c2 = static_cast<int8_t>((c << 1) ^ ((c & 0x80) != 0 ? 0x1d : 0));
+    auto c4 = static_cast<int8_t>((c2 << 1) ^ ((c2 & 0x80) != 0 ? 0x1d : 0));
+    auto c8 = static_cast<int8_t>((c4 << 1) ^ ((c4 & 0x80) != 0 ? 0x1d : 0));
 
     int8_t c3, c5, c6, c7, c9, c10, c11, c12, c13, c14, c15;
     int8_t c17, c18, c19, c20, c21, c22, c23, c24, c25, c26,
         c27, c28, c29, c30, c31;
 
-    c3 = (int8_t) (c2 ^ c);
-    c5 = (int8_t) (c4 ^ c);
-    c6 = (int8_t) (c4 ^ c2);
-    c7 = (int8_t) (c4 ^ c3);
+    c3 = static_cast<int8_t>(c2 ^ c);
+    c5 = static_cast<int8_t>(c4 ^ c);
+    c6 = static_cast<int8_t>(c4 ^ c2);
+    c7 = static_cast<int8_t>(c4 ^ c3);
 
-    c9 = (int8_t) (c8 ^ c);
-    c10 = (int8_t) (c8 ^ c2);
-    c11 = (int8_t) (c8 ^ c3);
-    c12 = (int8_t) (c8 ^ c4);
-    c13 = (int8_t) (c8 ^ c5);
-    c14 = (int8_t) (c8 ^ c6);
-    c15 = (int8_t) (c8 ^ c7);
+    c9 = static_cast<int8_t>(c8 ^ c);
+    c10 = static_cast<int8_t>(c8 ^ c2);
+    c11 = static_cast<int8_t>(c8 ^ c3);
+    c12 = static_cast<int8_t>(c8 ^ c4);
+    c13 = static_cast<int8_t>(c8 ^ c5);
+    c14 = static_cast<int8_t>(c8 ^ c6);
+    c15 = static_cast<int8_t>(c8 ^ c7);
 
     tbl[offset + 0] = 0;
     tbl[offset + 1] = c;
@@ -310,21 +275,21 @@ void GF256::gfVectMulInit(int8_t c, std::vector<int8_t> & tbl, int offset) {
     tbl[offset + 14] = c14;
     tbl[offset + 15] = c15;
 
-    c17 = (int8_t) ((c8 << 1) ^ ((c8 & 0x80) != 0 ? 0x1d : 0));
-    c18 = (int8_t) ((c17 << 1) ^ ((c17 & 0x80) != 0 ? 0x1d : 0));
-    c19 = (int8_t) (c18 ^ c17);
-    c20 = (int8_t) ((c18 << 1) ^ ((c18 & 0x80) != 0 ? 0x1d : 0));
-    c21 = (int8_t) (c20 ^ c17);
-    c22 = (int8_t) (c20 ^ c18);
-    c23 = (int8_t) (c20 ^ c19);
-    c24 = (int8_t) ((c20 << 1) ^ ((c20 & 0x80) != 0 ? 0x1d : 0));
-    c25 = (int8_t) (c24 ^ c17);
-    c26 = (int8_t) (c24 ^ c18);
-    c27 = (int8_t) (c24 ^ c19);
-    c28 = (int8_t) (c24 ^ c20);
-    c29 = (int8_t) (c24 ^ c21);
-    c30 = (int8_t) (c24 ^ c22);
-    c31 = (int8_t) (c24 ^ c23);
+    c17 = static_cast<int8_t>((c8 << 1) ^ ((c8 & 0x80) != 0 ? 0x1d : 0));
+    c18 = static_cast<int8_t>((c17 << 1) ^ ((c17 & 0x80) != 0 ? 0x1d : 0));
+    c19 = static_cast<int8_t>(c18 ^ c17);
+    c20 = static_cast<int8_t>((c18 << 1) ^ ((c18 & 0x80) != 0 ? 0x1d : 0));
+    c21 = static_cast<int8_t>(c20 ^ c17);
+    c22 = static_cast<int8_t>(c20 ^ c18);
+    c23 = static_cast<int8_t>(c20 ^ c19);
+    c24 = static_cast<int8_t>((c20 << 1) ^ ((c20 & 0x80) != 0 ? 0x1d : 0));
+    c25 = static_cast<int8_t>(c24 ^ c17);
+    c26 = static_cast<int8_t>(c24 ^ c18);
+    c27 = static_cast<int8_t>(c24 ^ c19);
+    c28 = static_cast<int8_t>(c24 ^ c20);
+    c29 = static_cast<int8_t>(c24 ^ c21);
+    c30 = static_cast<int8_t>(c24 ^ c22);
+    c31 = static_cast<int8_t>(c24 ^ c23);
 
     tbl[offset + 16] = 0;
     tbl[offset + 17] = c17;

@@ -21,47 +21,15 @@
  */
 
 #include "ByteBufferEncodingState.h"
-#include "RawErasureEncoder.h"
-
-using namespace Hdfs;
-using namespace Hdfs::Internal;
 
 namespace Hdfs {
 namespace Internal {
 
-ByteBufferEncodingState::ByteBufferEncodingState(RawErasureEncoder* encoder,
-                                                 std::vector<std::shared_ptr<ByteBuffer>> & inputs,
-                                                 std::vector<std::shared_ptr<ByteBuffer>> & outputs) :
+ByteBufferEncodingState::ByteBufferEncodingState(std::vector<shared_ptr<ByteBuffer>> & inputs,
+                                                 std::vector<shared_ptr<ByteBuffer>> & outputs) :
                                                  inputs(inputs), outputs(outputs) {
-    this->encoder = encoder;
-    std::shared_ptr<ByteBuffer> validInput = CoderUtil::findFirstValidInput(inputs);
-    this->encodeLength = validInput->remaining();
-}
-
-ByteBufferEncodingState::ByteBufferEncodingState(RawErasureEncoder* encoder,
-                                                 int encodeLength,
-                                                 std::vector<std::shared_ptr<ByteBuffer>> & inputs,
-                                                 std::vector<std::shared_ptr<ByteBuffer>> & outputs) :
-                                                 inputs(inputs), outputs(outputs) {
-    this->encoder = encoder;
-    this->encodeLength = encodeLength;
-}
-
-/**
- * Check and ensure the buffers are of the desired length and type, direct
- * buffers or not.
- * @param buffers the buffers to check
- */
-void ByteBufferEncodingState::checkBuffers(std::vector<std::shared_ptr<ByteBuffer>> & buffers) {
-    for (std::shared_ptr<ByteBuffer> buffer : buffers) {
-        if (buffer == nullptr) {
-            THROW(HadoopIllegalArgumentException, "Invalid buffer found, not allowing null");
-        }
-
-        if ((int)buffer->remaining() != encodeLength) {
-            THROW(HadoopIllegalArgumentException, "Invalid buffer, not of length %d", encodeLength);
-        }
-    }
+    shared_ptr<ByteBuffer> validInput = CoderUtil::findFirstValidInput(inputs);
+    encodeLength = validInput != nullptr ? static_cast<int>(validInput->remaining()) : 0;
 }
 
 }

@@ -21,22 +21,19 @@
  */
 
 #include "CoderUtil.h"
-
-using namespace Hdfs;
-using namespace Hdfs::Internal;
+#include "Exception.h"
+#include "ExceptionInternal.h"
 
 namespace Hdfs {
-namespace Internal {  
+namespace Internal {
 
-std::vector<int8_t> CoderUtil::emptyChunk(4096);
-
-std::vector<int> CoderUtil::copyOf(std::vector<int> & original, int newLength) {
+std::vector<int> CoderUtil::copyOf(const std::vector<int> & original, int newLength) {
     if (newLength < 0) {
-        throw "copyOf function's newLength should not be a negative number";
+        THROW(HadoopIllegalArgumentException, "copyOf function's newLength should not be a negative number");
     }
-    int orginal_length = original.size();
+    int orginal_length = static_cast<int>(original.size());
     int iter = std::min(newLength, orginal_length);
-    
+
     std::vector<int> copy(newLength, 0);
     for (int i = 0; i < iter; i++) {
         copy[i] = original[i];
@@ -44,27 +41,17 @@ std::vector<int> CoderUtil::copyOf(std::vector<int> & original, int newLength) {
     return copy;
 }
 
-std::vector<int8_t> CoderUtil::getEmptyChunk(int leastLength) {
-    if ((int)emptyChunk.size() >= leastLength) {
-        return emptyChunk; // In most time
-    }
-
-    std::vector<int8_t> newvec(leastLength);
-    emptyChunk = newvec;
-
-    return emptyChunk;
-}
-
-std::vector<int> CoderUtil::getValidIndexes(std::vector<std::shared_ptr<ByteBuffer>> & inputs) {
+std::vector<int> CoderUtil::getValidIndexes(const std::vector<shared_ptr<ByteBuffer>> & inputs) {
     std::vector<int> validIndexes(inputs.size());
     int idx = 0;
-    for (int i = 0; i < (int)inputs.size(); i++) {
+    for (int i = 0; i < static_cast<int>(inputs.size()); i++) {
         if (inputs[i] != nullptr) {
             validIndexes[idx++] = i;
         }
     }
 
-    return copyOf(validIndexes, idx);
+    validIndexes.resize(idx);
+    return validIndexes;
 }
 
 /**
@@ -72,33 +59,33 @@ std::vector<int> CoderUtil::getValidIndexes(std::vector<std::shared_ptr<ByteBuff
  * @param inputs input buffers to look for valid input
  * @return the first valid input
  */
-std::shared_ptr<ByteBuffer> CoderUtil::findFirstValidInput(std::vector<std::shared_ptr<ByteBuffer>> & inputs) {
-    for (std::shared_ptr<ByteBuffer> input : inputs) {
+shared_ptr<ByteBuffer> CoderUtil::findFirstValidInput(const std::vector<shared_ptr<ByteBuffer>> & inputs) {
+    for (shared_ptr<ByteBuffer> input : inputs) {
         if (input != nullptr) {
             return input;
         }
     }
-    throw "Invalid inputs are found, all being null";
+    THROW(HadoopIllegalArgumentException, "Invalid inputs are found, all being null");
 }
 
-void CoderUtil::resetBuffer(std::shared_ptr<ByteBuffer> buffer, int len) {
-    int pos = buffer->position();
-    memset(buffer.get()->getBuffer() + pos, 0, len);
+void CoderUtil::resetBuffer(const shared_ptr<ByteBuffer> & buffer, int len) {
+    int pos = static_cast<int>(buffer->position());
+    memset(buffer->getBuffer() + pos, 0, len);
     buffer->position(pos);
 }
 
-void CoderUtil::resetOutputBuffers(std::vector<std::shared_ptr<ByteBuffer>> & buffers, int dataLen) {
-    for (std::shared_ptr<ByteBuffer> tmp : buffers) {
+void CoderUtil::resetOutputBuffers(const std::vector<shared_ptr<ByteBuffer>> & buffers, int dataLen) {
+    for (const shared_ptr<ByteBuffer> & tmp : buffers) {
         resetBuffer(tmp, dataLen);
     }
 }
 
-std::vector<std::shared_ptr<ByteBuffer>> CoderUtil::toBuffers(std::vector<std::shared_ptr<ECChunk>> & chunks) {
+std::vector<shared_ptr<ByteBuffer>> CoderUtil::toBuffers(const std::vector<shared_ptr<ECChunk>> & chunks) {
   
-    std::vector<std::shared_ptr<ByteBuffer>> buffers(chunks.size());
-    std::shared_ptr<ECChunk> chunk;
+    std::vector<shared_ptr<ByteBuffer>> buffers(chunks.size());
+    shared_ptr<ECChunk> chunk;
     
-    for (int i = 0; i < (int)chunks.size(); i++) {
+    for (int i = 0; i < static_cast<int>(chunks.size()); i++) {
         chunk = chunks[i];
       
         if (!chunk) {
@@ -106,7 +93,7 @@ std::vector<std::shared_ptr<ByteBuffer>> CoderUtil::toBuffers(std::vector<std::s
         } else {
             buffers[i] = chunk->getBuffer();
             if (chunk->isAllZero()) {
-                CoderUtil::resetBuffer(buffers[i], buffers[i]->remaining());
+                CoderUtil::resetBuffer(buffers[i], static_cast<int>(buffers[i]->remaining()));
             }
         }
     }

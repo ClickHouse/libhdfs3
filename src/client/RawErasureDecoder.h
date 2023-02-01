@@ -38,34 +38,27 @@ namespace Internal {
 class RawErasureDecoder {
 public:
     RawErasureDecoder();
-    RawErasureDecoder(ErasureCoderOptions & coderOptions);
-    ~RawErasureDecoder();
+    explicit RawErasureDecoder(ErasureCoderOptions & coderOptions);
+    ~RawErasureDecoder() = default;
 
-    void doDecode(ByteBufferDecodingState* decodingState);
+    void doDecode(const shared_ptr<ByteBufferDecodingState> & decodingState);
 
-    void decode(std::vector<std::shared_ptr<ECChunk>> & inputs,
-                std::vector<int> & erasedIndexes, 
-                std::vector<std::shared_ptr<ECChunk>> & outputs);
+    void decode(std::vector<shared_ptr<ECChunk>> & inputs,
+                std::vector<int> & erasedIndexes,
+                std::vector<shared_ptr<ECChunk>> & outputs);
 
-    void decode(std::vector<std::shared_ptr<ByteBuffer>> & inputs,
-                std::vector<int> & erasedIndexes, 
-                std::vector<std::shared_ptr<ByteBuffer>> & outputs);
+    void decode(std::vector<shared_ptr<ByteBuffer>> & inputs,
+                std::vector<int> & erasedIndexes,
+                std::vector<shared_ptr<ByteBuffer>> & outputs);
 
-    void decode(std::vector< std::vector<int8_t> > & inputs, std::vector<int> erasedIndexes,
-                std::vector< std::vector<int8_t> > & outputs);
-    void prepareDecoding(std::vector<std::shared_ptr<ByteBuffer>> & inputs, vector<int> & erasedIndexes);
+    void prepareDecoding(const std::vector<shared_ptr<ByteBuffer>> & inputs, const vector<int> & erasedIndexes);
 
-    void processErasures(std::vector<int> & erasedIndexes);
+    void processErasures(const std::vector<int> & erasedIndexes);
     
-    void generateDecodeMatrix(std::vector<int> & erasedIndexes);
+    void generateDecodeMatrix(const std::vector<int> & erasedIndexes);
 
-    int getNumParityUnits();
-    int getNumDataUnits();
-    bool preferDirectBuffer();
-    bool allowChangeInputs();
-    bool allowVerboseDump();
-    void release();
-    int getNumAllUnits();
+    int getNumDataUnits() const;
+    int getNumAllUnits() const;
 
 private:
 
@@ -94,7 +87,5 @@ private:
     
 }
 }
-
-
 
 #endif /* _HDFS_LIBHDFS3_CLIENT_RAW_ERASURE_DECODER_H_ */

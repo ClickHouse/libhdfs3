@@ -22,27 +22,13 @@
 
 #include "ErasureCoderOptions.h"
 
-using namespace Hdfs;
-using namespace Hdfs::Internal;
-using namespace std;
-
 namespace Hdfs {
 namespace Internal {
 
-ErasureCoderOptions::ErasureCoderOptions(int numDataUnits, int numParityUnits) :
-        AllowChangeInputs(false), AllowVerboseDump(false) {
-    this->numDataUnits = numDataUnits;
-    this->numParityUnits = numParityUnits;
-    this->numAllUnits = numDataUnits + numParityUnits;
-}
-
-ErasureCoderOptions::ErasureCoderOptions(int numDataUnits, int numParityUnits,
-                                         bool allowChangeInputs, bool allowVerboseDump) {
-    this->numDataUnits = numDataUnits;
-    this->numParityUnits = numParityUnits;
-    this->numAllUnits = numDataUnits + numParityUnits;
-    this->AllowChangeInputs = allowChangeInputs;
-    this->AllowVerboseDump = allowVerboseDump;
+ErasureCoderOptions::ErasureCoderOptions(int _numDataUnits, int _numParityUnits) {
+    numDataUnits = _numDataUnits;
+    numParityUnits = _numParityUnits;
+    numAllUnits = _numDataUnits + _numParityUnits;
 }
 
 /**
@@ -50,7 +36,7 @@ ErasureCoderOptions::ErasureCoderOptions(int numDataUnits, int numParityUnits,
  * chunk or buffer or even a block.
  * @return count of data input units
  */
-int ErasureCoderOptions::getNumDataUnits() {
+int ErasureCoderOptions::getNumDataUnits() const {
     return numDataUnits;
 }
 
@@ -59,7 +45,7 @@ int ErasureCoderOptions::getNumDataUnits() {
  * chunk, buffer or even a block.
  * @return count of parity output units
  */
-int ErasureCoderOptions::getNumParityUnits() {
+int ErasureCoderOptions::getNumParityUnits() const {
     return numParityUnits;
 }
 
@@ -68,25 +54,8 @@ int ErasureCoderOptions::getNumParityUnits() {
  * The number of all the involved units in the coding.
  * @return count of all the data units and parity units
  */
-int ErasureCoderOptions::getNumAllUnits() {
+int ErasureCoderOptions::getNumAllUnits() const {
     return numAllUnits;
-}
-
-/**
- * Allow changing input buffer content (not positions). Maybe better
- * performance if not allowed.
- * @return true if allowing input content to be changed, false otherwise
- */
-bool ErasureCoderOptions::allowChangeInputs() {
-    return this->AllowChangeInputs;
-}
-
-/**
- * Allow dump verbose debug info or not.
- * @return true if verbose debug info is desired, false otherwise
- */
-bool ErasureCoderOptions::allowVerboseDump() {
-    return this->AllowVerboseDump;
 }
 
 }

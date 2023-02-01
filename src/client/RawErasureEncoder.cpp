@@ -22,12 +22,8 @@
 
 #include "RawErasureEncoder.h"
 #include "ECChunk.h"
-#include "StripeReader.h"
 
 #include <iostream>
-
-using namespace Hdfs;
-using namespace Hdfs::Internal;
 
 namespace Hdfs {
 namespace Internal {
@@ -49,60 +45,22 @@ RawErasureEncoder::RawErasureEncoder(ErasureCoderOptions & coderOptions) :
         getNumDataUnits() * getNumDataUnits(), gfTables);
 }
 
-RawErasureEncoder::~RawErasureEncoder() {
-}
-
-int RawErasureEncoder::getNumDataUnits() {
+int RawErasureEncoder::getNumDataUnits() const {
     return coderOptions.getNumDataUnits();
 }
 
-int RawErasureEncoder::getNumParityUnits() {
+int RawErasureEncoder::getNumParityUnits() const {
     return coderOptions.getNumParityUnits();
 }
 
-int RawErasureEncoder::getNumAllUnits() {
+int RawErasureEncoder::getNumAllUnits() const {
     return coderOptions.getNumAllUnits();
 }
 
-/**
- * Tell if direct buffer is preferred or not. It's for callers to
- * decide how to allocate coding chunk buffers, using DirectByteBuffer or
- * bytes array. It will return false by default.
- * @return true if native buffer is preferred for performance consideration,
- * otherwise false.
- */
-bool RawErasureEncoder::preferDirectBuffer() {
-    return false;
-}
-
-/**
- * Allow change into input buffers or not while perform encoding/decoding.
- * @return true if it's allowed to change inputs, false otherwise
- */
-bool RawErasureEncoder::allowChangeInputs() {
-    return coderOptions.allowChangeInputs();
-}
-
-/**
- * Allow to dump verbose info during encoding/decoding.
- * @return true if it's allowed to do verbose dump, false otherwise.
- */
-bool RawErasureEncoder::allowVerboseDump() {
-    return coderOptions.allowVerboseDump();
-}
-
-/**
- * Should be called when release this coder. Good chance to release encoding
- * or decoding buffers
- */
-void RawErasureEncoder::release() {
-    // Nothing to do here.
-}
-
 void RawErasureEncoder::encode(std::vector<shared_ptr<ByteBuffer>> & inputs,
-                               std::vector<shared_ptr<ByteBuffer>> & outputs) {
+                               std::vector<shared_ptr<ByteBuffer>> & outputs) const {
     shared_ptr<ByteBufferEncodingState> bbeState = shared_ptr<ByteBufferEncodingState>(
-        new ByteBufferEncodingState(this, inputs, outputs));
+        new ByteBufferEncodingState(inputs, outputs));
 
     int dataLen = bbeState->encodeLength;
     if (dataLen == 0) {
@@ -110,14 +68,14 @@ void RawErasureEncoder::encode(std::vector<shared_ptr<ByteBuffer>> & inputs,
     }
 
     std::vector<int> inputPositions(inputs.size());
-    for (int i = 0; i < (int)inputPositions.size(); i++) {
+    for (int i = 0; i < static_cast<int>(inputPositions.size()); i++) {
     if (inputs[i]) {
-            inputPositions[i] = inputs[i]->position();
+            inputPositions[i] = static_cast<int>(inputs[i]->position());
         }
     }
 
-    doEncode(bbeState.get());
-    for (int i = 0; i < (int)inputs.size(); i++) {
+    doEncode(bbeState);
+    for (int i = 0; i < static_cast<int>(inputs.size()); i++) {
         if (inputs[i]) {
             // dataLen bytes consumed
             inputs[i]->position(inputPositions[i] + dataLen);
@@ -125,14 +83,14 @@ void RawErasureEncoder::encode(std::vector<shared_ptr<ByteBuffer>> & inputs,
     }
 }
 
-void RawErasureEncoder::encode(std::vector<std::shared_ptr<ECChunk>> & inputs,
-                               std::vector<std::shared_ptr<ECChunk>> & outputs) {
-    std::vector<std::shared_ptr<ByteBuffer>> newInputs = CoderUtil::toBuffers(inputs);
-    std::vector<std::shared_ptr<ByteBuffer>> newOutputs = CoderUtil::toBuffers(outputs);
+void RawErasureEncoder::encode(std::vector<shared_ptr<ECChunk>> & inputs,
+                               std::vector<shared_ptr<ECChunk>> & outputs) const {
+    std::vector<shared_ptr<ByteBuffer>> newInputs = CoderUtil::toBuffers(inputs);
+    std::vector<shared_ptr<ByteBuffer>> newOutputs = CoderUtil::toBuffers(outputs);
     encode(newInputs, newOutputs);
 }
 
-void RawErasureEncoder::doEncode(ByteBufferEncodingState* encodingState) {
+void RawErasureEncoder::doEncode(const shared_ptr<ByteBufferEncodingState> & encodingState) const {
     CoderUtil::resetOutputBuffers(encodingState->outputs, encodingState->encodeLength);
     RSUtil::encodeData(gfTables, encodingState->inputs, encodingState->outputs);
 }

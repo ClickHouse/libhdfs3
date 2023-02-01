@@ -25,6 +25,7 @@
 
 #include "ECChunk.h"
 #include "ByteBuffer.h"
+#include "Memory.h"
 
 #include <ostream>
 #include <string>
@@ -37,25 +38,20 @@ namespace Internal {
 
 class CoderUtil {
 public:
-    static std::vector<int8_t> emptyChunk;
+    static void resetBuffer(const shared_ptr<ByteBuffer> & buffer, int len);
 
-public:
-    static std::vector<int8_t> getEmptyChunk(int leastLength);
-    static void resetBuffer(std::shared_ptr<ByteBuffer> buffer, int len);
+    static void resetOutputBuffers(const std::vector<shared_ptr<ByteBuffer>> & buffers, int dataLen);
 
-    static void resetOutputBuffers(std::vector<std::shared_ptr<ByteBuffer>> & buffers, int dataLen);
+    static std::vector<shared_ptr<ByteBuffer>> toBuffers(const std::vector<shared_ptr<ECChunk>> & chunks);
 
-    static std::vector<std::shared_ptr<ByteBuffer>> toBuffers(std::vector<std::shared_ptr<ECChunk>> & chunks);
+    static std::vector<int> getValidIndexes(const std::vector<shared_ptr<ByteBuffer>> & inputs);
 
-    static std::vector<int> getValidIndexes(std::vector<std::shared_ptr<ByteBuffer>> & inputs);
+    static std::vector<int> copyOf(const std::vector<int> & original, int newLength);
 
-    static std::vector<int> copyOf(std::vector<int> & original, int newLength);
-
-    static std::shared_ptr<ByteBuffer> findFirstValidInput(std::vector<std::shared_ptr<ByteBuffer>> & inputs);
+    static shared_ptr<ByteBuffer> findFirstValidInput(const std::vector<shared_ptr<ByteBuffer>> & inputs);
 };
 
 }
 }
-
 
 #endif /* _HDFS_LIBHDFS3_CODER_UTIL_H_ */
