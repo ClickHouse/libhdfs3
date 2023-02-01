@@ -45,7 +45,7 @@ StripedOutputStreamImpl::StripedOutputStreamImpl() : OutputStreamImpl() {
 #endif
 }
 
-StripedOutputStreamImpl::StripedOutputStreamImpl(ECPolicy * ecPolicy) :
+StripedOutputStreamImpl::StripedOutputStreamImpl(shared_ptr<ECPolicy> ecPolicy) :
     OutputStreamImpl(), ecPolicy(ecPolicy), blockGroupIndex(0) {
 }
 

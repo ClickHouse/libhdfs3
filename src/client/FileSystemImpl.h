@@ -322,7 +322,7 @@ public:
      * @return return a pair of the last partial block and file status if any
      */
     std::pair<shared_ptr<LocatedBlock>, shared_ptr<FileStatus> > append(
-        const std::string& src, const uint32_t& flag);
+        const std::string & src, const uint32_t & flag);
 
     /**
      * The client can give up on a block by calling abandonBlock().

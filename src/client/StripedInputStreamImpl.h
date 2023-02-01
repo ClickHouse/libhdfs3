@@ -80,7 +80,7 @@ private:
     const DatanodeInfo * choseBestNode(LocatedBlock & lb);
 
 public:
-    ByteBuffer * getCurStripeBuf() { return curStripeBuf; }
+    ByteBuffer * getCurStripeBuf() const { return curStripeBuf; }
     ByteBuffer * getParityBuffer();
 
 private:
@@ -88,7 +88,7 @@ private:
     int8_t dataBlkNum;
     int8_t parityBlkNum;
     int32_t groupSize;
-    ECPolicy * ecPolicy;
+    shared_ptr<ECPolicy> ecPolicy;
     
 
 private:

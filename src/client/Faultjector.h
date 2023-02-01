@@ -39,7 +39,7 @@ public:
     }
 
 private:
-    FaultInjector() {};
+    FaultInjector() = default;
 
 private:
     int32_t badNodesForRead = 0;

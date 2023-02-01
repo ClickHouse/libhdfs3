@@ -46,7 +46,7 @@ public:
      * Construct a new OutputStream.
      */
     OutputStream();
-    OutputStream(Hdfs::Internal::ECPolicy * ecPolicy);
+    OutputStream(Hdfs::Internal::shared_ptr<ECPolicy> ecPolicy);
 
     /**
      * Destroy a OutputStream instance.

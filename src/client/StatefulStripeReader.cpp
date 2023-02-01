@@ -32,7 +32,7 @@ namespace Internal {
 
 class CorruptedBlocks;
 StatefulStripeReader::StatefulStripeReader(StripedBlockUtil::AlignedStripe & alignedStripe,
-                                           ECPolicy * ecPolicy,
+                                           shared_ptr<ECPolicy> ecPolicy,
                                            std::vector<LocatedBlock> & targetBlocks,
                                            std::vector<StripeReader::BlockReaderInfo *> & readerInfos,
                                            shared_ptr<CorruptedBlocks> corruptedBlocks,

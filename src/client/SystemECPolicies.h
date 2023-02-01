@@ -24,9 +24,10 @@
 
 #include <map>
 #include <vector>
-#include <Memory.h>
 #include <shared_mutex>
+#include <boost/noncopyable.hpp>
 
+#include "Memory.h"
 #include "ECPolicy.h"
 
 enum PolicyId {
@@ -42,12 +43,8 @@ namespace Hdfs {
 
 namespace Internal {
 
-class SystemECPolicies {
+class SystemECPolicies: public boost::noncopyable {
 public:
-    ~SystemECPolicies();
-    SystemECPolicies(const SystemECPolicies &) = delete;
-    SystemECPolicies & operator=(const SystemECPolicies &) = delete;
-
     static SystemECPolicies & getInstance() {
         static SystemECPolicies instance;
         return instance;
@@ -57,17 +54,18 @@ public:
      * get system ec policy by id.
      * @param id The ec policy id.
      */
-    ECPolicy * getById(int8_t id);
+    shared_ptr<ECPolicy> getById(int8_t id);
 
     /**
      * add a new ec policy.
      * @param id The ec policy id.
      * @param ecPolicy The new ec policy.
      */
-    void addEcPolicy(int8_t id, ECPolicy * ecPolicy);
+    void addEcPolicy(int8_t id, shared_ptr<ECPolicy> ecPolicy);
 
 private:
     SystemECPolicies();
+    ~SystemECPolicies() = default;
 
 private:
     static std::shared_mutex mutex;
@@ -75,16 +73,8 @@ private:
     // 1MB
     const int32_t cellsize = 1024 * 1024;
     
-    // system ec policy
-    ECPolicy * replicationPolicy;
-    ECPolicy * sysPolicy1;
-    ECPolicy * sysPolicy2;
-    ECPolicy * sysPolicy3;
-    ECPolicy * sysPolicy4;
-    ECPolicy * sysPolicy5;
-    
-    std::vector<ECPolicy *> sysPolicies;
-    std::map<int8_t, ECPolicy *> maps;
+    std::vector<shared_ptr<ECPolicy>> sysPolicies;
+    std::map<int8_t, shared_ptr<ECPolicy>> maps;
 };
 
 }

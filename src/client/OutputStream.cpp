@@ -40,7 +40,7 @@ OutputStream::OutputStream() {
     impl = new Internal::OutputStreamImpl;
 }
 
-OutputStream::OutputStream(ECPolicy * ecPolicy) {
+OutputStream::OutputStream(shared_ptr<ECPolicy> ecPolicy) {
     impl = new Internal::StripedOutputStreamImpl(ecPolicy);
 }
 

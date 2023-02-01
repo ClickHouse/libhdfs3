@@ -24,71 +24,72 @@
 
 #include <cctype>
 #include <sstream>
+
 namespace Hdfs {
 
 namespace Internal {
 
 class ECPolicy {
 public:
-    ECPolicy() {}
+    ECPolicy() = default;
     ECPolicy(int8_t id, int32_t cellSize, int32_t dataUnits,
         int32_t parityUnits, const char * codecName) : 
         id(id), cellSize(cellSize), dataUnits(dataUnits), 
         parityUnits(parityUnits), codecName(codecName) {
-        std::stringstream ss;
-        ss << codecName;
-        ss << "-" + std::to_string(dataUnits)
-           << "-" + std::to_string(parityUnits)
-           << "-" + std::to_string(cellSize / 1024) + "k";
-        name = ss.str();
+        name = codecName + 
+               std::string("-") + std::to_string(dataUnits) + 
+               std::string("-") + std::to_string(parityUnits) + 
+               std::string("-") + std::to_string(cellSize / 1024) + "k";
     }
+
+    ~ECPolicy() = default;
     
     const char * getName() const {
         return name.c_str();
     }
 
-    void setName(const char * name) {
-        this->name = name;
+    void setName(const char * name_) {
+        name = name_;
     }
 
-    int32_t getCellSize() {
+    int32_t getCellSize() const {
         return cellSize;
     }
 
-    void setCellSize(int32_t cellSize) {
-        this->cellSize = cellSize;
+    void setCellSize(int32_t cellSize_) {
+        cellSize = cellSize_;
     }
 
     const char * getCodecName() const {
         return codecName.c_str();
     }
 
-    void setCodecName(const char * codecName) {
-        this->codecName = codecName;
+    void setCodecName(const char * codecName_) {
+        codecName = codecName_;
     }
 
-    int32_t getNumDataUnits() {
+    int32_t getNumDataUnits() const {
         return dataUnits;
     }
 
-    void setNumDataUnits(int32_t dataUnits) {
-        this->dataUnits = dataUnits;
+    void setNumDataUnits(int32_t dataUnits_) {
+        dataUnits = dataUnits_;
     }
 
-    int32_t getNumParityUnits() {
+    int32_t getNumParityUnits() const {
         return parityUnits;
     }
 
-    void setNumParityUnits(int32_t parityUnits) {
-        this->parityUnits = parityUnits;
+    void setNumParityUnits(int32_t parityUnits_) {
+        parityUnits = parityUnits_;
     }
 
-    int8_t getId() {
+    int8_t getId() const {
         return id;
     }
 
-    void setId(int8_t id) {
-        this->id = id;
+    void setId(int8_t id_) {
+        id = id_;
     }
 
 private:

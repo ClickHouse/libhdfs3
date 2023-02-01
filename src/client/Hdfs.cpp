@@ -46,8 +46,6 @@
 #include <string>
 #include <libxml/uri.h>
 
-using namespace Hdfs::Internal;
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -699,7 +697,7 @@ hdfsFile hdfsOpenFile(hdfsFS fs, const char * path, int flags, int bufferSize,
             std::pair<shared_ptr<LocatedBlock>, shared_ptr<Hdfs::FileStatus>> pair = fs->getFilesystem()
                 .createOrAppend(path, internalFlags, 0777, false, replication, blocksize);
             shared_ptr<Hdfs::FileStatus> status = pair.second;
-            ECPolicy * ecPolicy = status->getEcPolicy();
+            shared_ptr<ECPolicy> ecPolicy = status->getEcPolicy();
             file->setInput(false);
             if (status->getEcPolicy()) {
                 os = new OutputStream(ecPolicy);

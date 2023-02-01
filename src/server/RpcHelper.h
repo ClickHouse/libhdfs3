@@ -41,7 +41,6 @@
 #include "StackPrinter.h"
 #include "client/ECPolicy.h"
 #include "client/SystemECPolicies.h"
-#include "LocatedStripedBlock.h"
 
 #include <algorithm>
 #include <cassert>
@@ -132,12 +131,12 @@ static inline shared_ptr<LocatedBlock> Convert(const LocatedBlockProto & proto) 
     shared_ptr<LocatedBlock> lb(new LocatedBlock);
     if (proto.has_blockindices()) {
         lb->setStriped(true);
-        std::vector<int8_t> & indeces = lb->getIndices();
+        std::vector<int8_t> & indeces = lb->mutableIndices();
         indeces.resize(proto.blockindices().size());
-        for (int i = 0; i < (int)proto.blockindices().size(); ++i) {
+        for (int i = 0; i < static_cast<int>(proto.blockindices().size()); ++i) {
             indeces[i] = ((int8_t)proto.blockindices()[i]);
         }
-        std::vector<Token> & tokens = lb->getTokens();
+        std::vector<Token> & tokens = lb->mutableTokens();
         tokens.resize(proto.blocktokens_size());
         for (int i = 0; i < proto.blocktokens_size(); ++i) {
             Token token;
@@ -175,11 +174,11 @@ static inline void Convert(LocatedBlocks & lbs,
                            const ErasureCodingPolicyProto & proto) {
     int8_t id = (int8_t)(proto.id() & 0xFF);
     SystemECPolicies & sysPolicy = SystemECPolicies::getInstance();
-    ECPolicy * policy = sysPolicy.getById(id);
+    shared_ptr<ECPolicy> policy = sysPolicy.getById(id);
     if (policy != nullptr) {
         lbs.setEcPolicy(policy);
     } else {
-        policy = new ECPolicy();
+        policy = shared_ptr<ECPolicy>(new ECPolicy());
         policy->setId(id);
         policy->setName(proto.name().c_str());
         policy->setCellSize(proto.cellsize());
@@ -222,11 +221,11 @@ static inline void Convert(FileStatus & fs,
                            const ErasureCodingPolicyProto & proto) {
     int8_t id = (int8_t)(proto.id() & 0xFF);
     SystemECPolicies & sysPolicy = SystemECPolicies::getInstance();
-    ECPolicy * policy = sysPolicy.getById(id);
+    shared_ptr<ECPolicy> policy = sysPolicy.getById(id);
     if (policy != nullptr) {
         fs.setEcPolicy(policy);
     } else {
-        policy = new ECPolicy();
+        policy = shared_ptr<ECPolicy>(new ECPolicy());
         policy->setId(id);
         policy->setName(proto.name().c_str());
         policy->setCellSize(proto.cellsize());

@@ -53,7 +53,7 @@ StripedInputStreamImpl::StripedInputStreamImpl(shared_ptr<LocatedBlocks> lbs) :
 }
 
 StripedInputStreamImpl::~StripedInputStreamImpl() {
-    for (int i = 0; i < (int)blockReaders.size(); ++i) {
+    for (int i = 0; i < static_cast<int>(blockReaders.size()); ++i) {
         if (blockReaders[i] != nullptr) {
             delete blockReaders[i];
             blockReaders[i] = nullptr;
@@ -73,14 +73,14 @@ int64_t StripedInputStreamImpl::getOffsetInBlockGroup(int64_t pos) {
 int32_t StripedInputStreamImpl::getStripedBufOffset(int64_t offsetInBlockGroup) {
     int64_t stripeLen = cellSize * dataBlkNum;
     // compute the position in the curStripeBuf based on "pos"
-    return (int32_t) (offsetInBlockGroup % stripeLen);
+    return static_cast<int32_t>(offsetInBlockGroup % stripeLen);
   }
 
 int32_t StripedInputStreamImpl::copyToTarget(char * buf, int32_t length) {
     int64_t offsetInBlk = getOffsetInBlockGroup();
     int bufOffset = getStripedBufOffset(offsetInBlk);
     curStripeBuf->position(bufOffset);
-    int32_t result = std::min(length, (int32_t)curStripeBuf->remaining());
+    int32_t result = std::min(length, static_cast<int32_t>(curStripeBuf->remaining()));
     curStripeBuf->copyTo(buf, result);
     return result;
 }
@@ -252,17 +252,17 @@ void StripedInputStreamImpl::readOneStripe() {
     // 1. compute stripe range based on pos
     int64_t offsetInBlockGroup = getOffsetInBlockGroup();
     int64_t stripeLen = cellSize * dataBlkNum;
-    int32_t stripeIndex = (int32_t) (offsetInBlockGroup / stripeLen);
-    int32_t stripeBufOffset = (int32_t) (offsetInBlockGroup % stripeLen);
-    int32_t stripeLimit = (int32_t) std::min(stripeLen, 
-        curBlock->getNumBytes() - (stripeIndex * stripeLen));
+    int32_t stripeIndex = static_cast<int32_t>(offsetInBlockGroup / stripeLen);
+    int32_t stripeBufOffset = static_cast<int32_t>(offsetInBlockGroup % stripeLen);
+    int32_t stripeLimit = static_cast<int32_t>(std::min(stripeLen, 
+        curBlock->getNumBytes() - (stripeIndex * stripeLen)));
     LOG(DEBUG1, "readOneStripe offsetInBlockGroup=%ld, stripeLen=%ld, "
         "stripeIndex=%d, stripeBufOffset=%d, stripeLimit=%d\n", 
         offsetInBlockGroup, stripeLen, stripeIndex, stripeBufOffset, stripeLimit);
 
     std::vector<LocatedBlock> blks;
     StripedBlockUtil::parseStripedBlockGroup(*curBlock, cellSize, dataBlkNum, parityBlkNum, blks);
-    for (int32_t i = 0; i < (int32_t)curBlock->getIndices().size(); ++i) {
+    for (int i = 0; i < static_cast<int>(curBlock->getIndices().size()); ++i) {
         int32_t idx = curBlock->getIndices()[i];
         LOG(DEBUG1, "block[%d] id=%ld, size=%ld, locs=%s, poolid=%s\n", idx, blks[idx].getBlockId(), 
             blks[idx].getNumBytes(), blks[idx].getLocations()[0].getIpAddr().c_str(), blks[idx].getPoolId().c_str());
@@ -276,7 +276,7 @@ void StripedInputStreamImpl::readOneStripe() {
         offsetInBlockGroup + stripeRangeLen - 1, curStripeBuf, stripes);
 
     // 3. read stripe
-    for (int i = 0; i < (int)stripes.size(); ++i) {
+    for (int i = 0; i < static_cast<int>(stripes.size()); ++i) {
         // Parse group to get chosen DN location
         shared_ptr<StripeReader> sreader =
                 shared_ptr<StripeReader>(new StatefulStripeReader(*stripes[i], ecPolicy, blks,
@@ -285,7 +285,7 @@ void StripedInputStreamImpl::readOneStripe() {
     }
 
     // release stripes
-    for (int i = 0; i < (int)stripes.size(); ++i) {
+    for (int i = 0; i < static_cast<int>(stripes.size()); ++i) {
         if (stripes[i] != nullptr) {
             delete stripes[i];
             stripes[i] = nullptr;
@@ -308,9 +308,10 @@ int32_t StripedInputStreamImpl::read(char * buf, int32_t size) {
                 setCurBlock();
             }
 
-            int32_t realLen = std::min(size, (int32_t)(endOfCurBlock - cursor + 1));
+            int32_t realLen = std::min(size, static_cast<int32_t>(endOfCurBlock - cursor + 1));
             if (lbs->isLastBlockComplete()) {
-                realLen = (int32_t)std::min((int64_t)realLen, (int64_t)(lbs->getFileLength() - cursor));
+                realLen = static_cast<int32_t>(std::min(static_cast<int64_t>(realLen), 
+                    static_cast<int64_t>(lbs->getFileLength() - cursor)));
             }
 
             int result = 0;

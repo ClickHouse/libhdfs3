@@ -30,6 +30,7 @@
 
 #include "Permission.h"
 #include "ECPolicy.h"
+#include "Memory.h"
 
 #include <string>
 
@@ -38,8 +39,8 @@ namespace Hdfs {
 class FileStatus {
 public:
     FileStatus() :
-        isdir(false), atime(0), blocksize(0), length(0), mtime(
-            0), permission(0644), replications(0), ecPolicy(nullptr), fileId(0) {
+        isdir(false), atime(0), blocksize(0), length(0), mtime(0), permission(0644), 
+            replications(0), isStriped(false), ecPolicy(nullptr), fileId(0) {
     }
 
     int64_t getAccessTime() const {
@@ -150,20 +151,20 @@ public:
         return !symlink.empty();
     }
 
-    Internal::ECPolicy * getEcPolicy() const {
+    Internal::shared_ptr<Internal::ECPolicy> getEcPolicy() const {
         return ecPolicy;
     }
 
-    void setEcPolicy(Internal::ECPolicy * ecPolicy) {
-        this->ecPolicy = ecPolicy;
+    void setEcPolicy(Internal::shared_ptr<Internal::ECPolicy> policy) {
+        ecPolicy = policy;
     }
 
     int64_t getFileId() const {
         return fileId;
     }
 
-    void setFileId(int64_t fileId) {
-        this->fileId = fileId;
+    void setFileId(int64_t id) {
+        fileId = id;
     }
 
 private:
@@ -178,8 +179,8 @@ private:
     std::string owner;
     std::string path;
     std::string symlink;
-    bool isStriped = false;
-    Internal::ECPolicy * ecPolicy; // free by SystemECPolicies
+    bool isStriped;
+    Internal::shared_ptr<Internal::ECPolicy> ecPolicy;
     int64_t fileId;
 };
 
