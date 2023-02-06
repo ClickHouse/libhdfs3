@@ -41,7 +41,6 @@
 #include "rpc/RpcConfig.h"
 #include "rpc/RpcProtocolInfo.h"
 #include "rpc/RpcServerInfo.h"
-#include "server/EncryptionKey.h"
 #include "SessionConfig.h"
 
 #include <vector>
@@ -56,8 +55,6 @@ public:
      */
     virtual ~Namenode() {
     }
-
-    virtual EncryptionKey getEncryptionKeys() = 0;
 
     /**
      * Get locations of the blocks of the specified file within the specified range.

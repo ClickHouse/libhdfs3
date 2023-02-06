@@ -44,8 +44,6 @@ public:
 
 public:
 
-    EncryptionKey getEncryptionKeys();
-
     void getBlockLocations(const std::string & src, int64_t offset,
                            int64_t length, LocatedBlocks & lbs);
 
