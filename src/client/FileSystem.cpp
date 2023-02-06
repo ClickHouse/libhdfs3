@@ -196,12 +196,6 @@ FileSystem::~FileSystem() {
     }
 }
 
-EncryptionKey FileSystem::getEncryptionKeys() {
-    if (impl)
-        return impl->filesystem->getEncryptionKeys();
-    return EncryptionKey();
-}
-
 void FileSystem::connect() {
     Internal::SessionConfig sconf(conf);
     connect(sconf.getDefaultUri().c_str(), NULL, NULL);

@@ -104,22 +104,6 @@ public:
         return defaultBlockSize;
     }
 
-    bool getEncryptedDatanode() const {
-        return encryptedDatanode;
-    }
-
-    bool getSecureDatanode() const {
-        return secureDatanode;
-    }
-
-    void setSecureDatanode(bool val) {
-        secureDatanode = val;
-    }
-
-    int32_t getCryptoBufferSize() const {
-        return cryptoBufferSize;
-    }
-
     /*
      * InputStream configure
      */
@@ -190,10 +174,6 @@ public:
 
     bool canAddDatanode() const {
         return addDatanode;
-    }
-
-    bool canAddDatanodeBest() const {
-        return addDatanodeBest;
     }
 
     int32_t getHeartBeatInterval() const {
@@ -327,21 +307,7 @@ public:
       return socketCacheCapacity;
     }
 
-    int32_t getRpcProtection() const {
-        return rpcProtection;
-    }
-
-    int32_t getDataProtection() const {
-        return dataProtection;
-    }
-
 public:
-
-    int32_t rpcProtection;
-    int32_t dataProtection;
-    std::string rpcProtectionStr;
-    std::string dataProtectionStr;
-
     /*
      * rpc configure
      */
@@ -365,9 +331,6 @@ public:
     std::string logSeverity;
     int32_t defaultReplica;
     int64_t defaultBlockSize;
-    bool encryptedDatanode;
-    bool secureDatanode;
-    int32_t cryptoBufferSize;
 
     /*
      * InputStream configure
@@ -393,7 +356,6 @@ public:
      * OutputStream configure
      */
     bool addDatanode;
-    bool addDatanodeBest;
     int32_t chunkSize;
     int32_t packetSize;
     int32_t blockWriteRetry; //retry on block not replicated yet.

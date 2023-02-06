@@ -80,8 +80,6 @@ public:
      */
     const char * getClientName();
 
-    EncryptionKey getEncryptionKeys();
-
     /**
      * Connect to hdfs
      */
@@ -445,7 +443,7 @@ public:
      * Get the configuration used in filesystem.
      * @return return the configuration instance.
      */
-    SessionConfig & getConf()  {
+    const SessionConfig & getConf() const {
         return sconf;
     }
 

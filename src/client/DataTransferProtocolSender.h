@@ -30,8 +30,6 @@
 
 #include "DataTransferProtocol.h"
 #include "network/Socket.h"
-#include "rpc/SaslClient.h"
-#include "server/EncryptionKey.h"
 
 /**
  * Version 28:
@@ -60,9 +58,7 @@ enum DataTransferOp {
 class DataTransferProtocolSender: public DataTransferProtocol {
 public:
     DataTransferProtocolSender(Socket & sock, int writeTimeout,
-                               const std::string & datanodeAddr,
-                               bool secure, bool token, EncryptionKey& key,
-                               int32_t cryptoBufferSize, int32_t protection);
+                               const std::string & datanodeAddr);
 
     virtual ~DataTransferProtocolSender();
 
@@ -135,27 +131,10 @@ public:
                                         const Token& blockToken,
                                         uint32_t maxVersion);
 
-    virtual bool needsLength();
-    virtual bool isWrapped();
-
-    virtual std::string unwrap(std::string &data);
-    virtual std::string wrap(std::string &data);
-    virtual std::string unwrap(const char *input, size_t input_len);
-    virtual std::string wrap(const char *input, size_t input_len);
-private:
-    void setupSasl(const ExtendedBlock blk, const Token& blockToken);
-
 private:
     Socket & sock;
     int writeTimeout;
     std::string datanode;
-    bool isSecure;
-    bool isToken;
-    bool saslComplete;
-    SaslClient *saslClient;
-    EncryptionKey theKey;
-    int32_t cryptoBufferSize;
-    int32_t protection;
 };
 
 }

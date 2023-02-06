@@ -29,7 +29,7 @@
 #include "ExceptionInternal.h"
 #include "Function.h"
 #include "SessionConfig.h"
-#include "rpc/RpcAuth.h"
+
 #include <sstream>
 
 #define ARRAYSIZE(A) (sizeof(A) / sizeof(A[0]))
@@ -55,20 +55,6 @@ static void CheckMultipleOf(const char * key, const T & value, int unit) {
     }
 }
 
-int32_t parseProtection(std::string &str) {
-    if (0 == strcasecmp(str.c_str(), "authentication")) {
-        return Protection::AUTH;
-    } else if (0 == strcasecmp(str.c_str(), "privacy")) {
-        return Protection::CONF;
-    } else if (0 == strcasecmp(str.c_str(), "integrity")) {
-        return Protection::INT;
-    } else {
-        THROW(InvalidParameter, "SessionConfig: Unknown protection mechanism type: %s",
-              str.c_str());
-    }
-
-}
-
 SessionConfig::SessionConfig(const Config & conf) {
     ConfigDefault<bool> boolValues [] = {
         {
@@ -78,17 +64,11 @@ SessionConfig::SessionConfig(const Config & conf) {
         }, {
             &addDatanode, "output.replace-datanode-on-failure", true
         }, {
-            &addDatanodeBest, "output.replace-datanode-on-failure.best-effort", true
-        },{
             &notRetryAnotherNode, "input.notretry-another-node", false
         }, {
-            &useMappedFile, "input.localread.mappedfile", false
+            &useMappedFile, "input.localread.mappedfile", true
         }, {
             &legacyLocalBlockReader, "dfs.client.use.legacy.blockreader.local", false
-        }, {
-            &encryptedDatanode, "dfs.encrypt.data.transfer", false
-        },{
-            &secureDatanode, "dfs.block.access.token.enable", false
         }
     };
     ConfigDefault<int32_t> i32Values[] = {
@@ -152,8 +132,6 @@ SessionConfig::SessionConfig(const Config & conf) {
             &socketCacheExpiry, "dfs.client.socketcache.expiryMsec", 3000, bind(CheckRangeGE<int32_t>, _1, _2, 0)
         }, {
             &socketCacheCapacity, "dfs.client.socketcache.capacity", 16, bind(CheckRangeGE<int32_t>, _1, _2, 0)
-        }, {
-            &cryptoBufferSize, "hadoop.security.crypto.buffer.size", 8192,
         }
     };
     ConfigDefault<int64_t> i64Values [] = {
@@ -166,9 +144,7 @@ SessionConfig::SessionConfig(const Config & conf) {
         {&rpcAuthMethod, "hadoop.security.authentication", "simple" },
         {&kerberosCachePath, "hadoop.security.kerberos.ticket.cache.path", "" },
         {&logSeverity, "dfs.client.log.severity", "INFO" },
-        {&domainSocketPath, "dfs.domain.socket.path", ""},
-        {&rpcProtectionStr, "hadoop.rpc.protection", ""},
-        {&dataProtectionStr, "dfs.data.transfer.protection", ""}
+        {&domainSocketPath, "dfs.domain.socket.path", ""}
     };
 
     for (size_t i = 0; i < ARRAYSIZE(boolValues); ++i) {
@@ -205,17 +181,6 @@ SessionConfig::SessionConfig(const Config & conf) {
         if (strValues[i].check) {
             strValues[i].check(strValues[i].key, *strValues[i].variable);
         }
-    }
-
-    if (rpcProtectionStr.length() > 0) {
-        rpcProtection = parseProtection(rpcProtectionStr);
-    } else {
-        rpcProtection = 0;
-    }
-    if (dataProtectionStr.length() > 0) {
-        dataProtection = parseProtection(dataProtectionStr);
-    } else {
-        dataProtection = 0;
     }
 }
 
