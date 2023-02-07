@@ -136,7 +136,7 @@ static std::string ExtractPrincipalFromTicketCache(
 static std::string ExtractPrincipalFromToken(const Token & token) {
     std::string realUser, owner;
     std::string identifier = token.getIdentifier();
-    WritableUtils cin(const_cast<char*>(identifier.data()), identifier.size());
+    WritableUtils cin(identifier.data(), identifier.size());
     char version;
 
     try {

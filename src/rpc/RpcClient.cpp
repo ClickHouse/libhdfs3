@@ -54,7 +54,7 @@ RpcClientImpl::RpcClientImpl() :
     cleaning(false), running(true), count(0) {
     auto id = boost::uuids::random_generator()();
     clientId.resize(boost::uuids::uuid::static_size());
-    memcpy((void *)clientId.data(), id.begin(), boost::uuids::uuid::static_size());
+    memcpy(clientId.data(), id.begin(), boost::uuids::uuid::static_size());
 #ifdef MOCK
     stub = NULL;
 #endif
