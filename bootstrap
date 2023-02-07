@@ -45,7 +45,6 @@ Dependencies:
     protobuf        https://code.google.com/p/protobuf/
     kerberos        http://web.mit.edu/kerberos/
     libgsasl        http://www.gnu.org/software/gsasl/
-    openssl         https://www.openssl.org/
     libxml2         http://xmlsoft.org/
     boost 1.53+     http://www.boost.org/
                     [boost is not required if c++ compiler is g++ 4.6.0+ or clang++ with stdc++]
