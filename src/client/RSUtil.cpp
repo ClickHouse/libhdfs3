@@ -65,7 +65,8 @@ void RSUtil::encodeData(const std::vector<int8_t> & gfTables,
     int numInputs = static_cast<int>(inputs.size());
     int numOutputs = static_cast<int>(outputs.size());
     int dataLen = static_cast<int>(inputs[0]->remaining());
-    int l, i, j, iPos, oPos;
+    int l, i, j, k, iPos, oPos;
+    unsigned long long t1, t2, t3, t4, * iPosInULL, * oPosInULL;
     shared_ptr<ByteBuffer> input, output;
     int8_t s;
     const int times = dataLen / 8;
@@ -84,22 +85,21 @@ void RSUtil::encodeData(const std::vector<int8_t> & gfTables,
             const std::vector<int8_t> & tableLine = gf256_multable[s & 0xff];
 
             for (i = 0; i < times; i++, iPos += 8, oPos += 8) {
-                output->putInt8_t(output->getInt8_t(oPos + 0) ^
-                    tableLine[0xff & input->getInt8_t(iPos + 0)], oPos + 0);
-                output->putInt8_t(output->getInt8_t(oPos + 1) ^
-                    tableLine[0xff & input->getInt8_t(iPos + 1)], oPos + 1);
-                output->putInt8_t(output->getInt8_t(oPos + 2) ^
-                    tableLine[0xff & input->getInt8_t(iPos + 2)], oPos + 2);
-                output->putInt8_t(output->getInt8_t(oPos + 3) ^
-                    tableLine[0xff & input->getInt8_t(iPos + 3)], oPos + 3);
-                output->putInt8_t(output->getInt8_t(oPos + 4) ^
-                    tableLine[0xff & input->getInt8_t(iPos + 4)], oPos + 4);
-                output->putInt8_t(output->getInt8_t(oPos + 5) ^
-                    tableLine[0xff & input->getInt8_t(iPos + 5)], oPos + 5);
-                output->putInt8_t(output->getInt8_t(oPos + 6) ^
-                    tableLine[0xff & input->getInt8_t(iPos + 6)], oPos + 6);
-                output->putInt8_t(output->getInt8_t(oPos + 7) ^
-                    tableLine[0xff & input->getInt8_t(iPos + 7)], oPos + 7);
+                iPosInULL = (unsigned long long *)(&input->getBuffer()[iPos]);
+                oPosInULL = (unsigned long long *)(&output->getBuffer()[oPos]);
+                t1 = *iPosInULL;
+                t2 = *oPosInULL;
+                t3 = 0;
+                t4 = 0;
+                t3 |= static_cast<unsigned long long>(static_cast<unsigned char>(t2 ^ tableLine[0xff & t1]));
+
+                for (k = 1; k < 8; k++) {
+                    t1 >>= 8;
+                    t2 >>= 8;
+                    t4 += 8;
+                    t3 |= static_cast<unsigned long long>(static_cast<unsigned char>(t2 ^ tableLine[0xff & t1])) << t4;
+                }
+                *oPosInULL = t3;
             }
 
             for (i = extra; i < dataLen; i++, iPos++, oPos++) {
