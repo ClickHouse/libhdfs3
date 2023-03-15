@@ -20,33 +20,27 @@
  * limitations under the License.
  */
 
-#ifndef _HDFS_LIBHDFS3_ERASURE_CODER_OPTIONS_H_
-#define _HDFS_LIBHDFS3_ERASURE_CODER_OPTIONS_H_
+#ifndef LIBHDFS3_RAWERASURECODERFACTORY_H
+#define LIBHDFS3_RAWERASURECODERFACTORY_H
 
-#include <iostream>
-#include <string>
-#include <vector>
+#include "RawErasureEncoder.h"
+#include "RawErasureDecoder.h"
 
 namespace Hdfs {
 namespace Internal {
 
-class ErasureCoderOptions {
+class RawErasureCoderFactory {
 public:
-    ErasureCoderOptions(int _numDataUnits, int _numParityUnits);
-    ErasureCoderOptions(int _numDataUnits, int _numParityUnits, bool _allowVerboseDump);
-    int getNumDataUnits() const;
-    int getNumParityUnits() const;
-    int getNumAllUnits() const;
-    bool isAllowVerboseDump() const;
-
-public:
-    int numDataUnits;
-    int numParityUnits;
-    int numAllUnits;
-    bool allowVerboseDump;
+    static shared_ptr<RawErasureEncoder> createEncoder(ErasureCoderOptions & coderOptions);
+    static shared_ptr<RawErasureDecoder> createDecoder(ErasureCoderOptions & coderOptions);
+private:
+    /**
+    * Returns true only if this build was compiled with support for ISA-L.
+    */
+    static bool buildSupportsIsal();
 };
 
 }
 }
 
-#endif /* _HDFS_LIBHDFS3_ERASURE_CODER_OPTIONS_H_ */
+#endif //LIBHDFS3_RAWERASURECODERFACTORY_H

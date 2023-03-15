@@ -20,33 +20,36 @@
  * limitations under the License.
  */
 
-#ifndef _HDFS_LIBHDFS3_ERASURE_CODER_OPTIONS_H_
-#define _HDFS_LIBHDFS3_ERASURE_CODER_OPTIONS_H_
-
-#include <iostream>
-#include <string>
-#include <vector>
+#include "RawErasureCoderFactory.h"
+#include "NativeRSRawEncoder.h"
+#include "NativeRSRawDecoder.h"
 
 namespace Hdfs {
 namespace Internal {
 
-class ErasureCoderOptions {
-public:
-    ErasureCoderOptions(int _numDataUnits, int _numParityUnits);
-    ErasureCoderOptions(int _numDataUnits, int _numParityUnits, bool _allowVerboseDump);
-    int getNumDataUnits() const;
-    int getNumParityUnits() const;
-    int getNumAllUnits() const;
-    bool isAllowVerboseDump() const;
+bool RawErasureCoderFactory::buildSupportsIsal() {
+#ifdef HADOOP_ISAL_LIBRARY
+    return true;
+#else
+    return false;
+#endif
+}
 
-public:
-    int numDataUnits;
-    int numParityUnits;
-    int numAllUnits;
-    bool allowVerboseDump;
-};
+shared_ptr<RawErasureEncoder> RawErasureCoderFactory::createEncoder(ErasureCoderOptions & coderOptions) {
+    if (buildSupportsIsal()) {
+        return shared_ptr<NativeRSRawEncoder>(new NativeRSRawEncoder(coderOptions));
+    } else {
+        return shared_ptr<RawErasureEncoder>(new RawErasureEncoder(coderOptions));
+    }
+}
+
+shared_ptr<RawErasureDecoder> RawErasureCoderFactory::createDecoder(ErasureCoderOptions & coderOptions) {
+    if (buildSupportsIsal()) {
+        return shared_ptr<NativeRSRawDecoder>(new NativeRSRawDecoder(coderOptions));
+    } else {
+        return shared_ptr<RawErasureDecoder>(new RawErasureDecoder(coderOptions));
+    }
+}
 
 }
 }
-
-#endif /* _HDFS_LIBHDFS3_ERASURE_CODER_OPTIONS_H_ */

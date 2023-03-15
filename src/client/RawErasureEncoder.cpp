@@ -57,8 +57,12 @@ int RawErasureEncoder::getNumAllUnits() const {
     return coderOptions.getNumAllUnits();
 }
 
+bool RawErasureEncoder::isAllowVerboseDump() const {
+    return coderOptions.isAllowVerboseDump();
+}
+
 void RawErasureEncoder::encode(std::vector<shared_ptr<ByteBuffer>> & inputs,
-                               std::vector<shared_ptr<ByteBuffer>> & outputs) const {
+                               std::vector<shared_ptr<ByteBuffer>> & outputs) {
     shared_ptr<ByteBufferEncodingState> bbeState = shared_ptr<ByteBufferEncodingState>(
         new ByteBufferEncodingState(inputs, outputs));
 
@@ -84,15 +88,19 @@ void RawErasureEncoder::encode(std::vector<shared_ptr<ByteBuffer>> & inputs,
 }
 
 void RawErasureEncoder::encode(std::vector<shared_ptr<ECChunk>> & inputs,
-                               std::vector<shared_ptr<ECChunk>> & outputs) const {
+                               std::vector<shared_ptr<ECChunk>> & outputs) {
     std::vector<shared_ptr<ByteBuffer>> newInputs = CoderUtil::toBuffers(inputs);
     std::vector<shared_ptr<ByteBuffer>> newOutputs = CoderUtil::toBuffers(outputs);
     encode(newInputs, newOutputs);
 }
 
-void RawErasureEncoder::doEncode(const shared_ptr<ByteBufferEncodingState> & encodingState) const {
+void RawErasureEncoder::doEncode(const shared_ptr<ByteBufferEncodingState> & encodingState) {
     CoderUtil::resetOutputBuffers(encodingState->outputs, encodingState->encodeLength);
     RSUtil::encodeData(gfTables, encodingState->inputs, encodingState->outputs);
+}
+
+void RawErasureEncoder::release() {
+
 }
 
 }

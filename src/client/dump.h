@@ -1,7 +1,3 @@
-/********************************************************************
- * 2023 -
- * open source under Apache License Version 2.0
- ********************************************************************/
 /**
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
@@ -20,33 +16,22 @@
  * limitations under the License.
  */
 
-#ifndef _HDFS_LIBHDFS3_ERASURE_CODER_OPTIONS_H_
-#define _HDFS_LIBHDFS3_ERASURE_CODER_OPTIONS_H_
+/**
+ * Dump utilities for erasure coders.
+ */
 
-#include <iostream>
-#include <string>
-#include <vector>
+#ifndef _DUMP_H_
+#define _DUMP_H_
 
 namespace Hdfs {
 namespace Internal {
 
-class ErasureCoderOptions {
-public:
-    ErasureCoderOptions(int _numDataUnits, int _numParityUnits);
-    ErasureCoderOptions(int _numDataUnits, int _numParityUnits, bool _allowVerboseDump);
-    int getNumDataUnits() const;
-    int getNumParityUnits() const;
-    int getNumAllUnits() const;
-    bool isAllowVerboseDump() const;
+void dumpEncoder(IsalEncoder * pCoder);
 
-public:
-    int numDataUnits;
-    int numParityUnits;
-    int numAllUnits;
-    bool allowVerboseDump;
-};
+void dumpDecoder(IsalDecoder * pCoder);
+
+void dumpCodingMatrix(unsigned char * s, int n1, int n2);
 
 }
 }
-
-#endif /* _HDFS_LIBHDFS3_ERASURE_CODER_OPTIONS_H_ */
+#endif //_DUMP_H_

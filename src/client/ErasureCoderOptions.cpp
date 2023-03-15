@@ -25,10 +25,14 @@
 namespace Hdfs {
 namespace Internal {
 
-ErasureCoderOptions::ErasureCoderOptions(int _numDataUnits, int _numParityUnits) {
+ErasureCoderOptions::ErasureCoderOptions(int _numDataUnits, int _numParityUnits) :
+    ErasureCoderOptions(_numDataUnits, _numParityUnits, false) {}
+
+ErasureCoderOptions::ErasureCoderOptions(int _numDataUnits, int _numParityUnits, bool _allowVerboseDump) {
     numDataUnits = _numDataUnits;
     numParityUnits = _numParityUnits;
     numAllUnits = _numDataUnits + _numParityUnits;
+    allowVerboseDump = _allowVerboseDump;
 }
 
 /**
@@ -56,6 +60,14 @@ int ErasureCoderOptions::getNumParityUnits() const {
  */
 int ErasureCoderOptions::getNumAllUnits() const {
     return numAllUnits;
+}
+
+/**
+ * Allow dump verbose debug info or not.
+ * @return true if verbose debug info is desired, false otherwise
+ */
+bool ErasureCoderOptions::isAllowVerboseDump() const {
+    return allowVerboseDump;
 }
 
 }

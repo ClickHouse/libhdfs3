@@ -28,6 +28,7 @@
 #include "ReadShortCircuitInfo.h"
 #include "LocalBlockReader.h"
 #include "Faultjector.h"
+#include "RawErasureCoderFactory.h"
 
 #include <inttypes.h>
 #include <algorithm>
@@ -49,7 +50,7 @@ StripedInputStreamImpl::StripedInputStreamImpl(shared_ptr<LocatedBlocks> lbs) :
     blockReaders.resize(groupSize);
     InputStreamImpl::endOfCurBlock = -1;
     ErasureCoderOptions ecOptions(dataBlkNum, parityBlkNum);
-    decoder = shared_ptr<RawErasureDecoder>(new RawErasureDecoder(ecOptions));
+    decoder = RawErasureCoderFactory::createDecoder(ecOptions);
 }
 
 StripedInputStreamImpl::~StripedInputStreamImpl() {
@@ -387,6 +388,9 @@ void StripedInputStreamImpl::close() {
     if (parityBuf != nullptr) {
         delete parityBuf;
         parityBuf = nullptr;
+    }
+    if (decoder != nullptr) {
+        decoder->release();
     }
 }
 

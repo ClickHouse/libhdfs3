@@ -41,7 +41,7 @@ public:
     explicit RawErasureDecoder(ErasureCoderOptions & coderOptions);
     ~RawErasureDecoder() = default;
 
-    void doDecode(const shared_ptr<ByteBufferDecodingState> & decodingState);
+    virtual void doDecode(const shared_ptr<ByteBufferDecodingState> & decodingState);
 
     void decode(std::vector<shared_ptr<ECChunk>> & inputs,
                 std::vector<int> & erasedIndexes,
@@ -51,7 +51,7 @@ public:
                 std::vector<int> & erasedIndexes,
                 std::vector<shared_ptr<ByteBuffer>> & outputs);
 
-    void prepareDecoding(const std::vector<shared_ptr<ByteBuffer>> & inputs, const vector<int> & erasedIndexes);
+    void prepareDecoding(const std::vector<shared_ptr<ByteBuffer>> & inputs, const std::vector<int> & erasedIndexes);
 
     void processErasures(const std::vector<int> & erasedIndexes);
     
@@ -59,6 +59,9 @@ public:
 
     int getNumDataUnits() const;
     int getNumAllUnits() const;
+    bool isAllowVerboseDump() const;
+
+    virtual void release();
 
 private:
 

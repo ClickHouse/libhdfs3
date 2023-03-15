@@ -32,6 +32,7 @@
 #include "StripedBlockUtil.h"
 #include "Preconditions.h"
 #include "server/ExtendedBlock.h"
+#include "RawErasureCoderFactory.h"
 
 #include <cassert>
 #include <inttypes.h>
@@ -131,7 +132,7 @@ void StripedOutputStreamImpl::openInternal(shared_ptr<FileSystemInter> fs, const
     numAllBlocks = ecPolicy->getNumDataUnits() + ecPolicy->getNumParityUnits();
     numDataBlocks = ecPolicy->getNumDataUnits();
     ErasureCoderOptions coderOptions(numDataBlocks, numAllBlocks - numDataBlocks);
-    encoder = shared_ptr<RawErasureEncoder> (new RawErasureEncoder(coderOptions));
+    encoder = RawErasureCoderFactory::createEncoder(coderOptions);
 
     flushAllThreadPool = shared_ptr<ThreadPool>(new ThreadPool(numAllBlocks));
     coordinator = shared_ptr<Coordinator>(new Coordinator(numAllBlocks));
@@ -940,6 +941,7 @@ void StripedOutputStreamImpl::close() {
 
     LeaseRenewer::GetLeaseRenewer().StopRenew(filesystem);
     LOG(DEBUG1, "close file %s for write with length %" PRId64, path.c_str(), cursor);
+    encoder->release();
     reset();
 
     if (e) {

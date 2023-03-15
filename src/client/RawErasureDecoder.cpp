@@ -55,6 +55,10 @@ int RawErasureDecoder::getNumAllUnits() const {
     return coderOptions.getNumAllUnits();
 }
 
+bool RawErasureDecoder::isAllowVerboseDump() const {
+    return coderOptions.isAllowVerboseDump();
+}
+
 void RawErasureDecoder::doDecode(const shared_ptr<ByteBufferDecodingState> & decodingState) {
     CoderUtil::resetOutputBuffers(decodingState->outputs, decodingState->decodeLength);
     prepareDecoding(decodingState->inputs, decodingState->erasedIndexes);
@@ -103,7 +107,7 @@ void RawErasureDecoder::decode(std::vector<shared_ptr<ECChunk>> & inputs,
     decode(newInputs, erasedIndexes, newOutputs); 
 }
 
-void RawErasureDecoder::prepareDecoding(const std::vector<shared_ptr<ByteBuffer>> & inputs, const vector<int> & erasedIndexes) {
+void RawErasureDecoder::prepareDecoding(const std::vector<shared_ptr<ByteBuffer>> & inputs, const std::vector<int> & erasedIndexes) {
     vector<int> tmpValidIndexes = CoderUtil::getValidIndexes(inputs);
     if (cachedErasedIndexes == erasedIndexes && validIndexes == tmpValidIndexes) {
         return; // Optimization. Nothing to do
@@ -166,6 +170,10 @@ void RawErasureDecoder::processErasures(const std::vector<int> & erasedIndexes) 
 
     RSUtil::initTables(getNumDataUnits(), static_cast<int>(erasedIndexes.size()),
         decodeMatrix, 0, gfTables);
+}
+
+void RawErasureDecoder::release() {
+
 }
 
 }

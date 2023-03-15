@@ -20,33 +20,32 @@
  * limitations under the License.
  */
 
-#ifndef _HDFS_LIBHDFS3_ERASURE_CODER_OPTIONS_H_
-#define _HDFS_LIBHDFS3_ERASURE_CODER_OPTIONS_H_
+#ifndef LIBHDFS3_ABSTRACTNATIVERAWENCODER_H
+#define LIBHDFS3_ABSTRACTNATIVERAWENCODER_H
 
-#include <iostream>
-#include <string>
-#include <vector>
+#include <shared_mutex>
+
+#include "RawErasureEncoder.h"
 
 namespace Hdfs {
 namespace Internal {
 
-class ErasureCoderOptions {
+class AbstractNativeRawEncoder : public RawErasureEncoder {
 public:
-    ErasureCoderOptions(int _numDataUnits, int _numParityUnits);
-    ErasureCoderOptions(int _numDataUnits, int _numParityUnits, bool _allowVerboseDump);
-    int getNumDataUnits() const;
-    int getNumParityUnits() const;
-    int getNumAllUnits() const;
-    bool isAllowVerboseDump() const;
+    AbstractNativeRawEncoder(ErasureCoderOptions & coderOptions);
 
-public:
-    int numDataUnits;
-    int numParityUnits;
-    int numAllUnits;
-    bool allowVerboseDump;
+    void doEncode(const shared_ptr<ByteBufferEncodingState> & encodingState) override;
+
+    void release() override;
+protected:
+    virtual void performEncodeImpl(std::vector<shared_ptr<ByteBuffer>> & inputs, int inputOffsets[],
+                                   int dataLen, std::vector<shared_ptr<ByteBuffer>> & outputs, int outputOffsets[]) = 0;
+protected:
+    mutable std::shared_mutex mutex;
+    void * nativeCoder;
 };
 
 }
 }
 
-#endif /* _HDFS_LIBHDFS3_ERASURE_CODER_OPTIONS_H_ */
+#endif //LIBHDFS3_ABSTRACTNATIVERAWENCODER_H

@@ -37,18 +37,20 @@ public:
     explicit RawErasureEncoder(ErasureCoderOptions & coderOptions);
     ~RawErasureEncoder() = default;
 
-    void doEncode(const shared_ptr<ByteBufferEncodingState> & encodingState) const;
+    virtual void doEncode(const shared_ptr<ByteBufferEncodingState> & encodingState);
 
     void encode(std::vector<shared_ptr<ByteBuffer>> & inputs,
-                std::vector<shared_ptr<ByteBuffer>> & outputs) const;
+                std::vector<shared_ptr<ByteBuffer>> & outputs);
 
     void encode(std::vector<shared_ptr<ECChunk>> & inputs,
-                std::vector<shared_ptr<ECChunk>> & outputs) const;
+                std::vector<shared_ptr<ECChunk>> & outputs);
 
     int getNumDataUnits() const;
     int getNumParityUnits() const;
     int getNumAllUnits() const;
+    bool isAllowVerboseDump() const;
 
+    virtual void release();
 public:
 
     // relevant to schema and won't change during encode calls.
