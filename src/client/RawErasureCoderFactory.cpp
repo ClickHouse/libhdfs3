@@ -23,6 +23,7 @@
 #include "RawErasureCoderFactory.h"
 #include "NativeRSRawEncoder.h"
 #include "NativeRSRawDecoder.h"
+#include "Logger.h"
 
 namespace Hdfs {
 namespace Internal {
@@ -37,16 +38,20 @@ bool RawErasureCoderFactory::buildSupportsIsal() {
 
 shared_ptr<RawErasureEncoder> RawErasureCoderFactory::createEncoder(ErasureCoderOptions & coderOptions) {
     if (buildSupportsIsal()) {
+	LOG(DEBUG1, "support isa-l");
         return shared_ptr<NativeRSRawEncoder>(new NativeRSRawEncoder(coderOptions));
     } else {
+	LOG(DEBUG1, "not support isa-l");
         return shared_ptr<RawErasureEncoder>(new RawErasureEncoder(coderOptions));
     }
 }
 
 shared_ptr<RawErasureDecoder> RawErasureCoderFactory::createDecoder(ErasureCoderOptions & coderOptions) {
     if (buildSupportsIsal()) {
+	LOG(DEBUG1, "support isa-l");
         return shared_ptr<NativeRSRawDecoder>(new NativeRSRawDecoder(coderOptions));
     } else {
+	LOG(DEBUG1, "not support isa-l");
         return shared_ptr<RawErasureDecoder>(new RawErasureDecoder(coderOptions));
     }
 }
