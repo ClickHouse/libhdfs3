@@ -201,12 +201,12 @@ namespace Internal {
 
 template<typename THROWABLE>
 ATTRIBUTE_NORETURN ATTRIBUTE_NOINLINE
-void ThrowException(bool nested, const char * f, int l,
-                    const char * exceptionName, const char * fmt, ...) __attribute__((format(printf, 5, 6)));
+void ThrowException(bool nested, bool printStack, const char * f, int l,
+                    const char * exceptionName, const char * fmt, ...) __attribute__((format(printf, 6, 7)));
 
 template<typename THROWABLE>
 ATTRIBUTE_NORETURN ATTRIBUTE_NOINLINE
-void ThrowException(bool nested, const char * f, int l,
+void ThrowException(bool nested, bool printStack, const char * f, int l,
                     const char * exceptionName, const char * fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
@@ -223,11 +223,11 @@ void ThrowException(bool nested, const char * f, int l,
 
     if (!nested) {
         throw THROWABLE(buffer.c_str(), SkipPathPrefix(f), l,
-                        Hdfs::Internal::PrintStack(1, STACK_DEPTH).c_str());
+                        printStack ? Hdfs::Internal::PrintStack(1, STACK_DEPTH).c_str() : "");
     } else {
         Hdfs::throw_with_nested(
             THROWABLE(buffer.c_str(), SkipPathPrefix(f), l,
-                      Hdfs::Internal::PrintStack(1, STACK_DEPTH).c_str()));
+                      printStack ? Hdfs::Internal::PrintStack(1, STACK_DEPTH).c_str() : ""));
     }
 
     throw std::logic_error("should not reach here.");
@@ -291,9 +291,12 @@ const char * GetSystemErrorInfo(int eno);
 }
 
 #define THROW(throwable, fmt, ...) \
-    Hdfs::Internal::ThrowException<throwable>(false, __FILE__, __LINE__, #throwable, fmt, ##__VA_ARGS__);
+    Hdfs::Internal::ThrowException<throwable>(false, true, __FILE__, __LINE__, #throwable, fmt, ##__VA_ARGS__);
 
 #define NESTED_THROW(throwable, fmt, ...) \
-    Hdfs::Internal::ThrowException<throwable>(true, __FILE__, __LINE__, #throwable, fmt, ##__VA_ARGS__);
+    Hdfs::Internal::ThrowException<throwable>(true, true, __FILE__, __LINE__, #throwable, fmt, ##__VA_ARGS__);
+
+#define THROW_NO_STACK(throwable, fmt, ...) \
+    Hdfs::Internal::ThrowException<throwable>(false, false, __FILE__, __LINE__, #throwable, fmt, ##__VA_ARGS__);
 
 #endif /* _HDFS_LIBHDFS3_EXCEPTION_EXCEPTIONINTERNAL_H_ */
