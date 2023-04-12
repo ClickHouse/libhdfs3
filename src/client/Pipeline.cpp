@@ -45,9 +45,9 @@ PipelineImpl::PipelineImpl(const char * path, SessionConfig & conf,
                            shared_ptr<FileSystemInter> filesystem, int checksumType, int chunkSize,
                            int replication, int64_t bytesSent, PacketPool & packetPool,
                            shared_ptr<LocatedBlock> lastBlock, int64_t fileId) :
-    config(conf), checksumType(checksumType), chunkSize(chunkSize), errorIndex(-1), replication(replication), bytesAcked(
-    bytesSent), bytesSent(bytesSent), packetPool(packetPool), filesystem(filesystem), lastBlock(lastBlock), path(
-    path), fileId(fileId) {
+    checksumType(checksumType), chunkSize(chunkSize), errorIndex(-1), replication(replication), bytesAcked(
+        bytesSent), bytesSent(bytesSent), packetPool(packetPool), filesystem(filesystem), lastBlock(lastBlock), path(
+            path), fileId(fileId) {
     canAddDatanode = conf.canAddDatanode();
     blockWriteRetry = conf.getBlockWriteRetry();
     connectTimeout = conf.getOutputConnTimeout();
