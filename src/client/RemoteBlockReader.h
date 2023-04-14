@@ -45,7 +45,7 @@ namespace Internal {
 
 class RemoteBlockReader: public BlockReader {
 public:
-    RemoteBlockReader(const ExtendedBlock& eb, DatanodeInfo& datanode,
+    RemoteBlockReader(const ExtendedBlock& eb, DatanodeInfo datanode,
                       PeerCache& peerCache, int64_t start, int64_t len,
                       const Token& token, const char* clientName, bool verify,
                       SessionConfig& conf);
@@ -86,7 +86,7 @@ private:
     bool sentStatus;
     bool verify; //verify checksum or not.
     const ExtendedBlock & binfo;
-    DatanodeInfo & datanode;
+    DatanodeInfo datanode;
     int checksumSize;
     int chunkSize;
     int connTimeout;

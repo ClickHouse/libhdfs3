@@ -45,7 +45,7 @@ class MockNamenode: public Namenode {
 public:
     MOCK_METHOD4(getBlockLocations, void(const std::string & src, int64_t offset,
                             int64_t length, LocatedBlocks & lbs));
-    MOCK_METHOD7(create, void(const std::string & src, const Permission & masked,
+    MOCK_METHOD7(create, FileStatus(const std::string & src, const Permission & masked,
           const std::string & clientName, int flag, bool createParent,
           short replication, int64_t blockSize));
     MOCK_METHOD2(append, std::pair<shared_ptr<LocatedBlock>,
@@ -54,8 +54,8 @@ public:
     MOCK_METHOD2(setPermission, void(const std::string & src,
           const Permission & permission));
     MOCK_METHOD3(setOwner, void(const std::string & src, const std::string & username, const std::string & groupname));
-    MOCK_METHOD3(abandonBlock, void(const ExtendedBlock & b, const std::string & src,
-          const std::string & holder));
+    MOCK_METHOD4(abandonBlock, void(const ExtendedBlock & b, const std::string & src,
+          const std::string & holder, int64_t fileId));
     MOCK_METHOD4(addBlock, shared_ptr<LocatedBlock>(const std::string & src,
           const std::string & clientName, const ExtendedBlock * previous,
           const std::vector<DatanodeInfo> & excludeNodes));

@@ -84,13 +84,14 @@ void NamenodeImpl::getBlockLocations(const std::string & src, int64_t offset,
     }
 }
 
-void NamenodeImpl::create(const std::string & src, const Permission & masked,
-                          const std::string & clientName, int flag, bool createParent,
-                          short replication, int64_t blockSize) /* throw (AccessControlException,
+FileStatus NamenodeImpl::create(const std::string & src, const Permission & masked,
+                                const std::string & clientName, int flag, bool createParent,
+                                short replication, int64_t blockSize) /* throw (AccessControlException,
          AlreadyBeingCreatedException, DSQuotaExceededException,
          FileAlreadyExistsException, FileNotFoundException,
          NSQuotaExceededException, ParentNotDirectoryException,
           UnresolvedLinkException, HdfsIOException) */{
+    FileStatus retval;
     try {
         CreateRequestProto request;
         CreateResponseProto response;
@@ -102,6 +103,12 @@ void NamenodeImpl::create(const std::string & src, const Permission & masked,
         request.set_src(src);
         Build(masked, request.mutable_masked());
         invoke(RpcCall(false, "create", &request, &response));
+        if (response.has_fs()) {
+            Convert(src, retval, response.fs());
+            retval.setPath(src.c_str());
+            return retval;
+        }
+        THROW(HdfsIOException, "Path %s create failed.", src.c_str());
     } catch (const HdfsRpcServerException & e) {
         UnWrapper < AlreadyBeingCreatedException,
                   DSQuotaExceededException, FileAlreadyExistsException,
@@ -113,7 +120,7 @@ void NamenodeImpl::create(const std::string & src, const Permission & masked,
 }
 
 std::pair<shared_ptr<LocatedBlock>, shared_ptr<FileStatus> >
-NamenodeImpl::append(const std::string& src, const std::string& clientName)
+NamenodeImpl::append(const std::string& src, const std::string& clientName, const uint32_t& flag)
 /* throw (AlreadyBeingCreatedException, DSQuotaExceededException,
  FileNotFoundException,
  UnresolvedLinkException, HdfsIOException) */ {
@@ -123,6 +130,7 @@ NamenodeImpl::append(const std::string& src, const std::string& clientName)
         AppendResponseProto response;
         request.set_clientname(clientName);
         request.set_src(src);
+        request.set_flag(flag);
         invoke(RpcCall(false, "append", &request, &response));
 
         if (response.has_block()) {
@@ -210,8 +218,8 @@ void NamenodeImpl::setOwner(const std::string & src,
     }
 }
 
-void NamenodeImpl::abandonBlock(const ExtendedBlock & b,
-                                const std::string & src, const std::string & holder)
+void NamenodeImpl::abandonBlock(const ExtendedBlock & b, const std::string & src, 
+                                const std::string & holder, int64_t fileId)
 /* throw (FileNotFoundException,
  UnresolvedLinkException, HdfsIOException) */{
     try {
@@ -219,6 +227,7 @@ void NamenodeImpl::abandonBlock(const ExtendedBlock & b,
         AbandonBlockResponseProto response;
         request.set_holder(holder);
         request.set_src(src);
+        request.set_fileid(fileId);
         Build(b, request.mutable_b());
         invoke(RpcCall(false, "abandonBlock", &request, &response));
     } catch (const HdfsRpcServerException & e) {
@@ -230,7 +239,8 @@ void NamenodeImpl::abandonBlock(const ExtendedBlock & b,
 
 shared_ptr<LocatedBlock> NamenodeImpl::addBlock(const std::string & src,
         const std::string & clientName, const ExtendedBlock * previous,
-        const std::vector<DatanodeInfo> & excludeNodes)
+        const std::vector<DatanodeInfo> & excludeNodes,
+        int64_t fileId)
 /* throw (FileNotFoundException,
  NotReplicatedYetException,
  UnresolvedLinkException, HdfsIOException) */{
@@ -239,6 +249,7 @@ shared_ptr<LocatedBlock> NamenodeImpl::addBlock(const std::string & src,
         AddBlockResponseProto response;
         request.set_clientname(clientName);
         request.set_src(src);
+        request.set_fileid(fileId);
 
         if (previous) {
             Build(*previous, request.mutable_previous());
@@ -289,7 +300,7 @@ shared_ptr<LocatedBlock> NamenodeImpl::getAdditionalDatanode(
 }
 
 bool NamenodeImpl::complete(const std::string & src,
-                            const std::string & clientName, const ExtendedBlock * last)
+                            const std::string & clientName, const ExtendedBlock * last, int64_t fileId)
 /* throw (FileNotFoundException,
   UnresolvedLinkException, HdfsIOException) */{
     try {
@@ -297,6 +308,7 @@ bool NamenodeImpl::complete(const std::string & src,
         CompleteResponseProto response;
         request.set_clientname(clientName);
         request.set_src(src);
+        request.set_fileid(fileId);
 
         if (last) {
             Build(*last, request.mutable_last());

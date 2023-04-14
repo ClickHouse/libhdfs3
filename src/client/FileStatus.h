@@ -29,6 +29,8 @@
 #define _HDFS_LIBHDFS3_CLIENT_FILESTATUS_H_
 
 #include "Permission.h"
+#include "ECPolicy.h"
+#include "Memory.h"
 
 #include <string>
 
@@ -37,8 +39,8 @@ namespace Hdfs {
 class FileStatus {
 public:
     FileStatus() :
-        isdir(false), atime(0), blocksize(0), length(0), mtime(
-            0), permission(0644), replications(0) {
+        isdir(false), atime(0), blocksize(0), length(0), mtime(0), permission(0644), 
+            replications(0), isStriped(false), ecPolicy(nullptr), fileId(0) {
     }
 
     int64_t getAccessTime() const {
@@ -149,6 +151,22 @@ public:
         return !symlink.empty();
     }
 
+    Internal::shared_ptr<Internal::ECPolicy> getEcPolicy() const {
+        return ecPolicy;
+    }
+
+    void setEcPolicy(Internal::shared_ptr<Internal::ECPolicy> policy) {
+        ecPolicy = policy;
+    }
+
+    int64_t getFileId() const {
+        return fileId;
+    }
+
+    void setFileId(int64_t id) {
+        fileId = id;
+    }
+
 private:
     bool isdir;
     int64_t atime;
@@ -161,6 +179,9 @@ private:
     std::string owner;
     std::string path;
     std::string symlink;
+    bool isStriped;
+    Internal::shared_ptr<Internal::ECPolicy> ecPolicy;
+    int64_t fileId;
 };
 
 }
