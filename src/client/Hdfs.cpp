@@ -715,7 +715,8 @@ hdfsFile hdfsOpenFile(hdfsFS fs, const char * path, int flags, int bufferSize,
             int64_t prefetchSize = conf.getDefaultBlockSize() * conf.getPrefetchSize();
             shared_ptr<Hdfs::Internal::LocatedBlocks> lbs = 
                 shared_ptr<Hdfs::Internal::LocatedBlocksImpl>(new Hdfs::Internal::LocatedBlocksImpl);
-            fs->getFilesystem().getBlockLocations(path, 0, prefetchSize, *lbs);
+            std::string standardPath = fs->getFilesystem().getStandardPath(path);
+            fs->getFilesystem().getBlockLocations(standardPath, 0, prefetchSize, *lbs);
             file->setInput(true);
             is = new InputStream(lbs);
             is->open(fs->getFilesystem(), path, true);

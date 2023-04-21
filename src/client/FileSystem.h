@@ -316,6 +316,14 @@ public:
     void cancelDelegationToken(const std::string & token);
 
     /**
+     * Format the path to a absolute canonicalized path.
+     *
+     * @param path target path to be hendled.
+     * @return return a absolute canonicalized path.
+     */
+    std::string getStandardPath(const std::string & path);
+
+    /**
      * Get locations of the blocks of the specified file within the specified range.
      * DataNode locations for each block are sorted by
      * the proximity to the client.
