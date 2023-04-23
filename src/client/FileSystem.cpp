@@ -620,6 +620,20 @@ void FileSystem::cancelDelegationToken(const std::string & token) {
 }
 
 /**
+ * Format the path to a absolute canonicalized path.
+ *
+ * @param path target path to be hendled.
+ * @return return a absolute canonicalized path.
+ */
+std::string FileSystem::getStandardPath(const std::string & path) {
+    if (!impl) {
+        THROW(HdfsIOException, "FileSystem: not connected.");
+    }
+
+    return impl->filesystem->getStandardPath(path.c_str());
+}
+
+/**
  * Get locations of the blocks of the specified file within the specified range.
  * DataNode locations for each block are sorted by
  * the proximity to the client.
