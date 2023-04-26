@@ -30,6 +30,7 @@
 
 #include "LocatedBlock.h"
 #include "Memory.h"
+#include "client/ECPolicy.h"
 
 #include <cassert>
 
@@ -38,7 +39,7 @@ namespace Internal {
 
 class LocatedBlocks {
 public:
-    virtual ~LocatedBlocks() {}
+    virtual ~LocatedBlocks() = default;
 
     virtual int64_t getFileLength() const = 0;
 
@@ -59,6 +60,10 @@ public:
     virtual const LocatedBlock * findBlock(int64_t position) = 0;
 
     virtual std::vector<LocatedBlock> & getBlocks() = 0;
+
+    virtual shared_ptr<ECPolicy> getEcPolicy() const = 0;
+
+    virtual void setEcPolicy(shared_ptr<ECPolicy> ecPolicy) = 0;
 };
 
 /**
@@ -105,13 +110,22 @@ public:
         return blocks;
     }
 
+    shared_ptr<ECPolicy> getEcPolicy() const {
+        return ecPolicy;
+    }
+
+    void setEcPolicy(shared_ptr<ECPolicy> policy) {
+        ecPolicy = policy;
+    }
+
 private:
     bool lastBlockComplete;
     bool underConstruction;
     int64_t fileLength;
     shared_ptr<LocatedBlock> lastBlock;
     std::vector<LocatedBlock> blocks;
-
+    bool isStriped = false;
+    shared_ptr<ECPolicy> ecPolicy = nullptr;
 };
 
 }

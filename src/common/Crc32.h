@@ -2,7 +2,7 @@
  * Copyright (c) 2013 - 2014, Pivotal Inc.
  * All rights reserved.
  *
- * Author: Zhanwei Wang
+ * Author: Bowen Yang
  ********************************************************************/
 /********************************************************************
  * 2014 -
@@ -25,42 +25,56 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef _HDFS_LIBHDFS3_SERVER_DATAREADER_H_
-#define _HDFS_LIBHDFS3_SERVER_DATAREADER_H_
+#ifndef _HDFS_LIBHDFS3_COMMON_CRC32_H_
+#define _HDFS_LIBHDFS3_COMMON_CRC32_H_
 
-#include <string>
-#include <vector>
+#include "Checksum.h"
+
+#include <boost/crc.hpp>
+
 namespace Hdfs {
 namespace Internal {
 
 /**
- * Helps read data responses from the server
+ * Calculate CRC with boost::crc_32_type.
  */
-class DataReader {
+class Crc32: public Checksum {
 public:
-    DataReader(DataTransferProtocol *sender,
-            shared_ptr<BufferedSocketReader> reader, int readTimeout);
-    std::vector<char>& readResponse(const char* text, int &outsize);
-    std::vector<char>& readPacketHeader(const char* text, int size, int &outsize);
-    std::string& getRest() {
-        return rest;
+    /**
+     * Constructor.
+     */
+    Crc32() {
     }
 
-    void setRest(const char* data, int size);
-    void reduceRest(int size);
-    void getMissing(int size);
+    uint32_t getValue() {
+        return crc.checksum();
+    }
+
+    /**
+     * @ref Checksum#reset()
+     */
+    void reset() {
+        crc.reset();
+    }
+
+    /**
+     * @ref Checksum#update(const void *, int)
+     */
+    void update(const void * b, int len) {
+        crc.process_bytes((const char*) b, len);
+    }
+
+    /**
+     * Destory an Crc32 instance.
+     */
+    ~Crc32() {
+    }
 
 private:
-    std::string raw;
-    std::string decrypted;
-    std::string rest;
-    std::vector<char> buf;
-    DataTransferProtocol *sender;
-    shared_ptr<BufferedSocketReader> reader;
-    int readTimeout;
+    boost::crc_32_type crc;
 };
 
 }
 }
 
-#endif /* _HDFS_LIBHDFS3_SERVER_DATAREADER_H_ */
+#endif /* _HDFS_LIBHDFS3_COMMON_CRC32_H_ */

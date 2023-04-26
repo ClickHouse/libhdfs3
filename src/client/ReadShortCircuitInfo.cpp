@@ -72,7 +72,7 @@ ReadShortCircuitInfoBuilder::ReadShortCircuitInfoBuilder(
     : dnInfo(dnInfo), auth(auth), conf(conf) {}
 
 shared_ptr<ReadShortCircuitInfo> ReadShortCircuitInfoBuilder::fetchOrCreate(
-    const ExtendedBlock& block, const Token token, EncryptionKey& ekey) {
+    const ExtendedBlock& block, const Token token) {
   shared_ptr<ReadShortCircuitInfo> retval;
   ReadShortCircuitInfoKey key(dnInfo.getXferPort(), block.getBlockId(),
                               block.getPoolId());
@@ -116,7 +116,7 @@ shared_ptr<ReadShortCircuitInfo> ReadShortCircuitInfoBuilder::fetchOrCreate(
     }
 
     // create a new one
-    retval = createReadShortCircuitInfo(key, block, token, ekey);
+    retval = createReadShortCircuitInfo(key, block, token);
     ReadShortCircuitFDCache.setMaxSize(conf.getMaxFileDescriptorCacheSize());
   }
 
@@ -239,12 +239,11 @@ std::string ReadShortCircuitInfoBuilder::buildDomainSocketAddress(
 shared_ptr<ReadShortCircuitInfo>
 ReadShortCircuitInfoBuilder::createReadShortCircuitInfo(
     const ReadShortCircuitInfoKey& key, const ExtendedBlock& block,
-    const Token& token, EncryptionKey& ekey) {
+    const Token& token) {
   std::string addr = buildDomainSocketAddress(key.dnPort);
   DomainSocketImpl sock;
   sock.connect(addr.c_str(), 0, conf.getInputConnTimeout());
-  DataTransferProtocolSender sender(sock, conf.getInputWriteTimeout(), addr, conf.getEncryptedDatanode(),
-    conf.getSecureDatanode(), ekey, conf.getCryptoBufferSize(), conf.getDataProtection());
+  DataTransferProtocolSender sender(sock, conf.getInputWriteTimeout(), addr);
   sender.requestShortCircuitFds(block, token, MaxReadShortCircuitVersion);
   shared_ptr<ReadShortCircuitFDHolder> fds =
       receiveReadShortCircuitFDs(sock, block);

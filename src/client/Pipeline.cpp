@@ -32,30 +32,38 @@
 #include "ExceptionInternal.h"
 #include "OutputStreamInter.h"
 #include "FileSystemInter.h"
+#include "DataTransferProtocolSender.h"
 #include "datatransfer.pb.h"
-#include "server/Datanode.h"
-#include "DataReader.h"
-
-#include <google/protobuf/io/coded_stream.h>
-#include <google/protobuf/io/zero_copy_stream.h>
-#include <google/protobuf/io/zero_copy_stream_impl_lite.h>
-
-using namespace ::google::protobuf;
-using namespace google::protobuf::io;
+#include "Faultjector.h"
 
 #include <inttypes.h>
 
 namespace Hdfs {
 namespace Internal {
 
-PipelineImpl::PipelineImpl(bool append, const char * path, SessionConfig & conf,
+PipelineImpl::PipelineImpl(const char * path, SessionConfig & conf,
                            shared_ptr<FileSystemInter> filesystem, int checksumType, int chunkSize,
-                           int replication, int64_t bytesSent, PacketPool & packetPool, shared_ptr<LocatedBlock> lastBlock) :
-    config(conf), checksumType(checksumType), chunkSize(chunkSize), errorIndex(-1), replication(replication), bytesAcked(
+                           int replication, int64_t bytesSent, PacketPool & packetPool,
+                           shared_ptr<LocatedBlock> lastBlock, int64_t fileId) :
+    checksumType(checksumType), chunkSize(chunkSize), errorIndex(-1), replication(replication), bytesAcked(
         bytesSent), bytesSent(bytesSent), packetPool(packetPool), filesystem(filesystem), lastBlock(lastBlock), path(
-            path) {
+            path), fileId(fileId) {
     canAddDatanode = conf.canAddDatanode();
-    canAddDatanodeBest = conf.canAddDatanodeBest();
+    blockWriteRetry = conf.getBlockWriteRetry();
+    connectTimeout = conf.getOutputConnTimeout();
+    readTimeout = conf.getOutputReadTimeout();
+    writeTimeout = conf.getOutputWriteTimeout();
+    clientName = filesystem->getClientName();
+}
+
+PipelineImpl::PipelineImpl(bool append, const char * path, const SessionConfig & conf,
+                           shared_ptr<FileSystemInter> filesystem, int checksumType, int chunkSize,
+                           int replication, int64_t bytesSent, PacketPool & packetPool,
+                           shared_ptr<LocatedBlock> lastBlock, int64_t fileId) :
+    checksumType(checksumType), chunkSize(chunkSize), errorIndex(-1), replication(replication), bytesAcked(
+        bytesSent), bytesSent(bytesSent), packetPool(packetPool), filesystem(filesystem), lastBlock(lastBlock), path(
+            path), fileId(fileId) {
+    canAddDatanode = conf.canAddDatanode();
     blockWriteRetry = conf.getBlockWriteRetry();
     connectTimeout = conf.getOutputConnTimeout();
     readTimeout = conf.getOutputReadTimeout();
@@ -104,26 +112,16 @@ void PipelineImpl::transfer(const ExtendedBlock & blk, const DatanodeInfo & src,
     shared_ptr<Socket> so(new TcpSocketImpl);
     shared_ptr<BufferedSocketReader> in(new BufferedSocketReaderImpl(*so));
     so->connect(src.getIpAddr().c_str(), src.getXferPort(), connectTimeout);
-    EncryptionKey key = filesystem->getEncryptionKeys();
-    DataTransferProtocolSender sender(*so, writeTimeout, src.formatAddress(), config.getEncryptedDatanode(),
-        config.getSecureDatanode(), key, config.getCryptoBufferSize(), config.getDataProtection());
+    DataTransferProtocolSender sender(*so, writeTimeout, src.formatAddress());
     sender.transferBlock(blk, token, clientName.c_str(), targets);
-    char error_text[2048];
-    sprintf(error_text, "from %s for block %s.", nodes[0].formatAddress().c_str(), lastBlock->toString().c_str());
-    DataReader datareader(&sender, in, readTimeout);
     int size;
-    std::vector<char> &buf = datareader.readResponse(error_text, size);
+    size = in->readVarint32(readTimeout);
+    std::vector<char> buf(size);
+    in->readFully(buf.data(), size, readTimeout);
     BlockOpResponseProto resp;
+
     if (!resp.ParseFromArray(buf.data(), size)) {
-        DataTransferEncryptorMessageProto resp2;
-        if (resp2.ParseFromArray(buf.data(), size))
-        {
-            if (resp2.status() != DataTransferEncryptorMessageProto_DataTransferEncryptorStatus_SUCCESS) {
-                THROW(HdfsIOException, "Error doing transfer from %s for block %s.: %s",
-              nodes[0].formatAddress().c_str(), lastBlock->toString().c_str(), resp2.message().c_str());
-            }
-        }
-        THROW(HdfsIOException, "cannot parse datanode response from %s for block %s.",
+        THROW(HdfsIOException, "cannot parse datanode response from %s fro block %s.",
               src.formatAddress().c_str(), lastBlock->toString().c_str());
     }
 
@@ -170,22 +168,9 @@ bool PipelineImpl::addDatanodeToPipeline(const std::vector<DatanodeInfo> & exclu
             targets.push_back(nodes[d]);
             LOG(INFO, "Replicate block %s from %s to %s for file %s.", lastBlock->toString().c_str(),
                 src.formatAddress().c_str(), targets[0].formatAddress().c_str(), path.c_str());
-            try {
-                transfer(*lastBlock, src, targets, lb->getToken());
-                errorIndex = -1;
-                return true;
-            } catch (HdfsIOException &ex) {
-                if (!config.getEncryptedDatanode() && config.getSecureDatanode()) {
-                    config.setSecureDatanode(false);
-                    filesystem->getConf().setSecureDatanode(false);
-                    LOG(INFO, "Tried to use SASL connection but failed, falling back to non SASL");
-                    transfer(*lastBlock, src, targets, lb->getToken());
-                    errorIndex = -1;
-                    return true;
-                } else {
-                    throw;
-                }
-            }
+            transfer(*lastBlock, src, targets, lb->getToken());
+            errorIndex = -1;
+            return true;
         }
     } catch (const HdfsCanceled & e) {
         throw;
@@ -231,12 +216,8 @@ void PipelineImpl::buildForAppendOrRecovery(bool recovery) {
     int retry = blockWriteRetry;
     exception_ptr lastException;
     std::vector<DatanodeInfo> excludedNodes;
-    std::vector<DatanodeInfo> empty;
     shared_ptr<LocatedBlock> lb;
     std::string buffer;
-    DatanodeInfo removed;
-    std::string storageID;
-    bool useRemoved = false;
 
     do {
         /*
@@ -244,46 +225,20 @@ void PipelineImpl::buildForAppendOrRecovery(bool recovery) {
          * If errorIndex was not set (i.e. appends), then do not remove
          * any datanodes
          */
-        useRemoved = false;
-        storageID = "";
         if (errorIndex >= 0) {
             assert(lastBlock);
-            bool invalid = true;
-            LOG(LOG_ERROR, "Pipeline: node %s had error. Trying to ping to test if valid.",
-                nodes[errorIndex].formatAddress().c_str());
-            try {
-                RpcAuth a = RpcAuth(filesystem->getUserInfo(), RpcAuth::ParseMethod(config.getRpcAuthMethod()));
-                shared_ptr<Datanode> dn = shared_ptr < Datanode > (new DatanodeImpl(nodes[errorIndex].getIpAddr().c_str(),
-                                              nodes[errorIndex].getIpcPort(), config, a));
-                dn->sendPing();
-                invalid = false;
-                LOG(INFO, "Pipeline: node %s was able to ping. Will continue to use.",
-                    nodes[errorIndex].formatAddress().c_str());
-                removed = nodes[errorIndex];
-                if (errorIndex < (int)storageIDs.size())
-                    storageID = storageIDs[errorIndex];
-                useRemoved = true;
-            }
-            catch (...) {
-            }
-            if (invalid) {
-                /*
-                 * If node was pingable, don't exclude it, but do remove it for now. We will then
-                 * be able to add it back later.
-                */
-                LOG(LOG_ERROR, "Pipeline: node %s is invalid and removed from pipeline when %s block %s for file %s, stage = %s.",
-                    nodes[errorIndex].formatAddress().c_str(),
-                    (recovery ? "recovery" : "append to"), lastBlock->toString().c_str(),
-                    path.c_str(), StageToString(stage));
-                excludedNodes.push_back(nodes[errorIndex]);
-            }
+            LOG(LOG_ERROR, "Pipeline: node %s is invalid and removed from pipeline when %s block %s for file %s, stage = %s.",
+                nodes[errorIndex].formatAddress().c_str(),
+                (recovery ? "recovery" : "append to"), lastBlock->toString().c_str(),
+                path.c_str(), StageToString(stage));
+            excludedNodes.push_back(nodes[errorIndex]);
             nodes.erase(nodes.begin() + errorIndex);
 
             if (!storageIDs.empty()) {
                 storageIDs.erase(storageIDs.begin() + errorIndex);
             }
 
-            if (nodes.empty() && invalid) {
+            if (nodes.empty()) {
                 THROW(HdfsIOException,
                       "Build pipeline to %s block %s failed: all datanodes are bad.",
                       (recovery ? "recovery" : "append to"), lastBlock->toString().c_str());
@@ -301,40 +256,12 @@ void PipelineImpl::buildForAppendOrRecovery(bool recovery) {
              */
             if (stage != PIPELINE_SETUP_CREATE && stage != PIPELINE_CLOSE
                     && static_cast<int>(nodes.size()) < replication && canAddDatanode) {
-                // Single data node case
-                bool added = false;
-                if (nodes.empty() && useRemoved) {
-                    if (storageID.length()) {
-                        LOG(INFO, "Pipeline: Adding back only datanode %s", removed.formatAddress().c_str());
-                        nodes.push_back(removed);
-                        lb = filesystem->updateBlockForPipeline(*lastBlock);
-                        storageIDs.push_back(storageID);
-                        lb->setPoolId(lastBlock->getPoolId());
-                        lb->setBlockId(lastBlock->getBlockId());
-                        lb->setLocations(nodes);
-                        lb->setStorageIDs(storageIDs);
-                        lb->setNumBytes(lastBlock->getNumBytes());
-                        lb->setOffset(lastBlock->getOffset());
-                        filesystem->updatePipeline(*lastBlock, *lb, nodes, storageIDs);
-                        added = true;
-                    }
+                if (!addDatanodeToPipeline(excludedNodes)) {
+                    THROW(HdfsIOException,
+                          "Failed to add new datanode into pipeline for block: %s file %s, "
+                          "set \"output.replace-datanode-on-failure\" to \"false\" to disable this feature.",
+                          lastBlock->toString().c_str(), path.c_str());
                 }
-                if (!added && !addDatanodeToPipeline(excludedNodes)) {
-
-                    // We may have remove nodes due to timeout, try again, but allow for
-                    // excluded ones to be added back
-                    if (!addDatanodeToPipeline(empty) && !canAddDatanodeBest) {
-                        THROW(HdfsIOException,
-                              "Failed to add new datanode into pipeline for block: %s file %s, "
-                              "set \"output.replace-datanode-on-failure\" to \"false\" to disable this feature.",
-                              lastBlock->toString().c_str(), path.c_str());
-                    }
-                }
-            }
-            if (nodes.empty()) {
-                THROW(HdfsIOException,
-                      "Build pipeline to %s block failed: all datanodes are bad.",
-                      (recovery ? "recovery" : "append to"));
             }
 
             if (errorIndex >= 0) {
@@ -420,7 +347,7 @@ void PipelineImpl::locateNextBlock(
     while (true) {
         try {
             lastBlock = filesystem->addBlock(path, lastBlock.get(),
-                                             excludedNodes);
+                                             excludedNodes, fileId);
             assert(lastBlock);
             return;
         } catch (const NotReplicatedYetException & e) {
@@ -531,7 +458,7 @@ void PipelineImpl::buildForNewBlock() {
         LOG(INFO, "Abandoning block: %s for file %s.", lastBlock->toString().c_str(), path.c_str());
 
         try {
-            filesystem->abandonBlock(*lastBlock, path);
+            filesystem->abandonBlock(*lastBlock, path, fileId);
         } catch (const HdfsException & e) {
             LOG(LOG_ERROR,
                 "Failed to abandon useless block %s for file %s.\n%s",
@@ -614,31 +541,19 @@ void PipelineImpl::createBlockOutputStream(const Token & token, int64_t gs, bool
         for (size_t i = 1; i < nodes.size(); ++i) {
             targets.push_back(nodes[i]);
         }
-        EncryptionKey key = filesystem->getEncryptionKeys();
-        sender = shared_ptr<DataTransferProtocolSender>(new DataTransferProtocolSender(*sock, writeTimeout,
-                                          nodes[0].formatAddress(),
-                                          config.getEncryptedDatanode(),
-                                          config.getSecureDatanode(),
-                                          key, config.getCryptoBufferSize(),
-                                          config.getDataProtection()));
-        sender->writeBlock(*lastBlock, token, clientName.c_str(), targets,
+
+        DataTransferProtocolSender sender(*sock, writeTimeout,
+                                          nodes[0].formatAddress());
+        sender.writeBlock(*lastBlock, token, clientName.c_str(), targets,
                           (recovery ? (stage | 0x1) : stage), nodes.size(),
                           lastBlock->getNumBytes(), bytesSent, gs, checksumType, chunkSize);
-        char error_text[2048];
-        sprintf(error_text, "from %s for block %s.", nodes[0].formatAddress().c_str(), lastBlock->toString().c_str());
-        DataReader datareader(sender.get(), reader, readTimeout);
         int size;
-        std::vector<char> &buf = datareader.readResponse(error_text, size);
+        size = reader->readVarint32(readTimeout);
+        std::vector<char> buf(size);
+        reader->readFully(buf.data(), size, readTimeout);
         BlockOpResponseProto resp;
+
         if (!resp.ParseFromArray(buf.data(), size)) {
-            DataTransferEncryptorMessageProto resp2;
-            if (resp2.ParseFromArray(buf.data(), size))
-            {
-                if (resp2.status() != DataTransferEncryptorMessageProto_DataTransferEncryptorStatus_SUCCESS) {
-                    THROW(HdfsIOException, "Error creating output stream from %s for block %s.: %s",
-                  nodes[0].formatAddress().c_str(), lastBlock->toString().c_str(), resp2.message().c_str());
-                }
-            }
             THROW(HdfsIOException, "cannot parse datanode response from %s for block %s.",
                   nodes[0].formatAddress().c_str(), lastBlock->toString().c_str());
         }
@@ -660,17 +575,6 @@ void PipelineImpl::createBlockOutputStream(const Token & token, int64_t gs, bool
         }
 
         return;
-    } catch (HdfsIOException &ex) {
-        if (!config.getEncryptedDatanode() && config.getSecureDatanode()) {
-            config.setSecureDatanode(false);
-            filesystem->getConf().setSecureDatanode(false);
-            LOG(INFO, "Tried to use SASL connection but failed, falling back to non SASL");
-            createBlockOutputStream(token, gs, recovery);
-            return;
-        } else {
-            errorIndex = 0;
-            lastError = current_exception();
-        }
     } catch (...) {
         errorIndex = 0;
         lastError = current_exception();
@@ -708,24 +612,7 @@ void PipelineImpl::resend() {
 
     for (size_t i = 0; i < packets.size(); ++i) {
         ConstPacketBuffer b = packets[i]->getBuffer();
-        if (sender && sender->isWrapped()) {
-            std::string indata;
-            int size = b.getSize();
-            indata.resize(size);
-            memcpy(indata.data(), b.getBuffer(), size);
-            std::string data = sender->wrap(indata);
-            WriteBuffer buffer;
-            if (sender->needsLength())
-                buffer.writeBigEndian(static_cast<int32_t>(data.length()));
-            char * b = buffer.alloc(data.length());
-            memcpy(b, data.c_str(), data.length());
-            sock->writeFully(buffer.getBuffer(0), buffer.getDataSize(0),
-                         writeTimeout);
-        }
-        else {
-            sock->writeFully(b.getBuffer(), b.getSize(),
-                             writeTimeout);
-        }
+        sock->writeFully(b.getBuffer(), b.getSize(), writeTimeout);
         int64_t tmp = packets[i]->getLastByteOffsetBlock();
         bytesSent = bytesSent > tmp ? bytesSent : tmp;
     }
@@ -753,24 +640,14 @@ void PipelineImpl::send(shared_ptr<Packet> packet) {
                 resend();
             } else {
                 assert(sock);
-                if (sender && sender->isWrapped()) {
-                    std::string indata;
-                    int size = buffer.getSize();
-                    indata.resize(size);
-                    memcpy(indata.data(), buffer.getBuffer(), size);
-                    std::string data = sender->wrap(indata);
-                    WriteBuffer buffer2;
-                    if (sender->needsLength())
-                        buffer2.writeBigEndian(static_cast<int32_t>(data.length()));
-                    char * b = buffer2.alloc(data.length());
-                    memcpy(b, data.c_str(), data.length());
-                    sock->writeFully(buffer2.getBuffer(0), buffer2.getDataSize(0),
+                // test bad node
+                if (FaultInjector::get().testBadWriterAtKillPos(bytesSent)) {
+                    LOG(LOG_ERROR, "testBadWriterAtKillPos, bytesSent=%ld, bytesAcked=%ld",
+                        bytesSent, bytesAcked);
+                    THROW(HdfsIOException, "bad RemoteBlockWriter");
+                }
+                sock->writeFully(buffer.getBuffer(), buffer.getSize(),
                                  writeTimeout);
-                }
-                else {
-                    sock->writeFully(buffer.getBuffer(), buffer.getSize(),
-                                     writeTimeout);
-                }
                 int64_t tmp = packet->getLastByteOffsetBlock();
                 bytesSent = bytesSent > tmp ? bytesSent : tmp;
             }
@@ -783,6 +660,10 @@ void PipelineImpl::send(shared_ptr<Packet> packet) {
             }
 
             sock.reset();
+        }
+
+        if (lastBlock->isStriped()) {
+            THROW(HdfsIOException, "ec block send failed");
         }
 
         buildForAppendOrRecovery(true);
@@ -823,7 +704,7 @@ void PipelineImpl::processAck(PipelineAck & ack) {
             sock.reset();
         }
 
-        packetPool.relesePacket(packets[0]);
+        packetPool.releasePacket(packets[0]);
         packets.pop_front();
     } else {
         for (int i = ack.getNumOfReplies() - 1; i >= 0; --i) {
@@ -842,24 +723,20 @@ void PipelineImpl::processAck(PipelineAck & ack) {
 
 void PipelineImpl::processResponse() {
     PipelineAck ack;
-    int size = 0;
-    char error_text[2048];
-    sprintf(error_text, "for block %s.", lastBlock->toString().c_str());
-    DataReader datareader(sender.get(), reader, readTimeout);
+    std::vector<char> buf;
+    int size = reader->readVarint32(readTimeout);
+    ack.reset();
+    buf.resize(size);
+    reader->readFully(buf.data(), size, readTimeout);
+    ack.readFrom(buf.data(), size);
 
-    do {
-        std::vector<char> &buf = datareader.readResponse(error_text, size);
-        ack.reset();
-        ack.readFrom(buf.data(), size);
+    if (ack.isInvalid()) {
+        THROW(HdfsIOException,
+              "processAllAcks: get an invalid DataStreamer packet ack for block %s",
+              lastBlock->toString().c_str());
+    }
 
-        if (ack.isInvalid()) {
-            THROW(HdfsIOException,
-                  "processAllAcks: get an invalid DataStreamer packet ack for block %s",
-                  lastBlock->toString().c_str());
-        }
-
-        processAck(ack);
-    } while (datareader.getRest().size() > 0);
+    processAck(ack);
 }
 
 void PipelineImpl::checkResponse(bool wait) {
@@ -895,6 +772,13 @@ void PipelineImpl::waitForAcks(bool force) {
                 resend();
             }
 
+            // test bad node
+            if (FaultInjector::get().testBadWriterAtAckPos(bytesAcked)) {
+                LOG(LOG_ERROR, "testBadWriterAtAckPos, bytesSent=%ld, bytesAcked=%ld",
+                    bytesSent, bytesAcked);
+                THROW(HdfsIOException, "bad RemoteBlockWriter");
+            }
+
             checkResponse(true);
             failover = false;
         } catch (const HdfsIOException & e) {
@@ -904,8 +788,8 @@ void PipelineImpl::waitForAcks(bool force) {
 
             std::string buffer;
             LOG(LOG_ERROR,
-                "Failed to flush pipeline on datanode %s for block %s file %s.\n%s",
-                nodes[errorIndex].formatAddress().c_str(), lastBlock->toString().c_str(),
+                "Failed to flush pipeline(index=%d) on datanode %s for block %s file %s.\n%s",
+                errorIndex, nodes[errorIndex].formatAddress().c_str(), lastBlock->toString().c_str(),
                 path.c_str(), GetExceptionDetail(e, buffer));
             LOG(INFO, "Rebuild pipeline to flush for block %s file %s.", lastBlock->toString().c_str(), path.c_str());
             sock.reset();
@@ -913,6 +797,10 @@ void PipelineImpl::waitForAcks(bool force) {
         }
 
         if (failover) {
+            if (lastBlock->isStriped()) {
+                failover = false;
+                THROW(HdfsIOException, "ec block wait ack failed");
+            }
             buildForAppendOrRecovery(true);
 
             if (stage == PIPELINE_CLOSE) {
@@ -924,7 +812,21 @@ void PipelineImpl::waitForAcks(bool force) {
     }
 }
 
+int64_t PipelineImpl::getBytesSent() {
+    return bytesSent;
+}
+
+bool PipelineImpl::isClosed() {
+    return stage == PIPELINE_CLOSE;
+}
+
 shared_ptr<LocatedBlock> PipelineImpl::close(shared_ptr<Packet> lastPacket) {
+    // test bad node
+    if (FaultInjector::get().testPipelineClose()) {
+        LOG(LOG_ERROR, "testPipelineClose, bytesSent=%ld, bytesAcked=%ld",
+            bytesSent, bytesAcked);
+        THROW(HdfsIOException, "bad RemoteBlockWriter");
+    }
     waitForAcks(true);
     lastPacket->setLastPacketInBlock(true);
     stage = PIPELINE_CLOSE;
@@ -936,6 +838,109 @@ shared_ptr<LocatedBlock> PipelineImpl::close(shared_ptr<Packet> lastPacket) {
         path.c_str(), lastBlock->toString().c_str(),
         lastBlock->getNumBytes());
     return lastBlock;
+}
+
+StripedPipelineImpl::StripedPipelineImpl(const char * path, SessionConfig & conf,
+                    shared_ptr<FileSystemInter> filesystem, int checksumType, int chunkSize,
+                    int replication, int64_t bytesSent, PacketPool & packetPool,
+                    shared_ptr<LocatedBlock> lastBlock, int64_t fileId) :
+                    PipelineImpl(path, conf, filesystem, checksumType, chunkSize, replication,
+                                 bytesSent, packetPool, lastBlock, fileId) {
+    LOG(DEBUG2, "create pipeline for file %s to write to a new block", path);
+    stage = PIPELINE_SETUP_CREATE;
+    buildForNewBlock(lastBlock);
+    stage = DATA_STREAMING;
+}
+
+void StripedPipelineImpl::buildForNewBlock(shared_ptr<LocatedBlock> block) {
+    int retryAllocNewBlock = 0, retry = blockWriteRetry;
+    std::string buffer;
+
+    do {
+        errorIndex = -1;
+        lastBlock = block;
+
+        try {
+            lastBlock->setNumBytes(0);
+            nodes = lastBlock->getLocations();
+            storageIDs = lastBlock->getStorageIDs();
+        } catch (const HdfsRpcException &e) {
+            const char *lastBlockName = lastBlock ? lastBlock->toString().c_str() : "Null";
+            LOG(LOG_ERROR,
+                "Failed to allocate a new empty block for file %s, last block %s.\n%s",
+                path.c_str(), lastBlockName, GetExceptionDetail(e, buffer));
+
+            if (retryAllocNewBlock > blockWriteRetry) {
+                throw;
+            }
+
+            LOG(INFO, "Retry to allocate a new empty block for file %s, last block %s.",
+                path.c_str(), lastBlockName);
+            ++retryAllocNewBlock;
+            continue;
+        } catch (const HdfsException &e) {
+            const char *lastBlockName = lastBlock ? lastBlock->toString().c_str() : "Null";
+            LOG(LOG_ERROR,
+                "Failed to allocate a new empty block for file %s, last block %s.\n%s",
+                path.c_str(), lastBlockName, GetExceptionDetail(e, buffer));
+            throw;
+        }
+
+        retryAllocNewBlock = 0;
+        if (nodes.empty()) {
+            THROW(HdfsIOException,
+                  "No datanode is available to create a pipeline for block %s file %s.",
+                  lastBlock->toString().c_str(), path.c_str());
+        }
+
+        try {
+            // test bad node
+            if (FaultInjector::get().testCreateOutputStreamFailed()) {
+                LOG(LOG_ERROR, "testCreateOutputStreamFailed, bytesSent=%ld, bytesAcked=%ld",
+                    bytesSent, bytesAcked);
+                THROW(HdfsIOException, "bad RemoteBlockWriter");
+            }
+            createBlockOutputStream(lastBlock->getToken(), 0, false);
+            break;  //break on success
+        } catch (const HdfsInvalidBlockToken &e) {
+            LOG(LOG_ERROR,
+                "Failed to setup the pipeline for new block %s file %s.\n%s",
+                lastBlock->toString().c_str(), path.c_str(), GetExceptionDetail(e, buffer));
+        } catch (const HdfsTimeoutException &e) {
+            LOG(LOG_ERROR,
+                "Failed to setup the pipeline for new block %s file %s.\n%s",
+                lastBlock->toString().c_str(), path.c_str(), GetExceptionDetail(e, buffer));
+        } catch (const HdfsIOException &e) {
+            LOG(LOG_ERROR,
+                "Failed to setup the pipeline for new block %s file %s.\n%s",
+                lastBlock->toString().c_str(), path.c_str(), GetExceptionDetail(e, buffer));
+        }
+
+        LOG(INFO, "Abandoning block: %s for file %s.", lastBlock->toString().c_str(), path.c_str());
+
+        try {
+            filesystem->abandonBlock(*lastBlock, path, fileId);
+        } catch (const HdfsException &e) {
+            LOG(LOG_ERROR,
+                "Failed to abandon useless block %s for file %s.\n%s",
+                lastBlock->toString().c_str(), path.c_str(), GetExceptionDetail(e, buffer));
+            throw;
+        }
+
+        if (errorIndex >= 0) {
+            LOG(INFO, "Excluding invalid datanode: %s for block %s for file %s",
+                nodes[errorIndex].formatAddress().c_str(), lastBlock->toString().c_str(), path.c_str());
+        } else {
+            /*
+             * we don't known what happened, no datanode is reported failure, reduce retry count in case of infinite loop.
+             */
+            --retry;
+        }
+
+        if (lastBlock->isStriped() && errorIndex >= 0) {
+            THROW(HdfsIOException, "build for ec newBlock failed");
+        }
+    } while (retry);
 }
 
 }

@@ -41,7 +41,7 @@ static inline std::vector<std::string> StringSplit(const std::string & str,
     char * token, *lasts = NULL;
     std::string s = str;
     std::vector<std::string> retval;
-    token = strtok_r(const_cast<char*>(s.data()), sep, &lasts);
+    token = strtok_r(s.data(), sep, &lasts);
 
     while (token) {
         retval.push_back(token);

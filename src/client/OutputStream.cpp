@@ -30,6 +30,7 @@
 #include "Memory.h"
 #include "OutputStream.h"
 #include "OutputStreamImpl.h"
+#include "StripedOutputStreamImpl.h"
 
 using namespace Hdfs::Internal;
 
@@ -39,19 +40,31 @@ OutputStream::OutputStream() {
     impl = new Internal::OutputStreamImpl;
 }
 
+OutputStream::OutputStream(shared_ptr<ECPolicy> ecPolicy) {
+    impl = new Internal::StripedOutputStreamImpl(ecPolicy);
+}
+
 OutputStream::~OutputStream() {
     delete impl;
 }
 
-void OutputStream::open(FileSystem & fs, const char * path, int flag,
-                        const Permission permission, bool createParent, int replication,
-                        int64_t blockSize) {
+void OutputStream::open(FileSystem & fs, const char * path,
+                        std::pair<shared_ptr<LocatedBlock>, shared_ptr<Hdfs::FileStatus>> & pair,
+                        int flag, const Permission permission, bool createParent, int replication,
+                        int64_t blockSize, int64_t fileId) {
     if (!fs.impl) {
         THROW(HdfsIOException, "FileSystem: not connected.");
     }
 
-    impl->open(fs.impl->filesystem, path, flag, permission, createParent, replication,
-               blockSize);
+    impl->open(fs.impl->filesystem, path, pair, flag, permission, createParent, replication,
+               blockSize, fileId);
+}
+
+void OutputStream::open(FileSystem & fs, const char * path,
+                        int flag, const Permission permission, bool createParent, int replication,
+                        int64_t blockSize) {
+    std::pair<shared_ptr<LocatedBlock>, shared_ptr<Hdfs::FileStatus>> pair;
+    open(fs, path, pair, flag, permission, createParent, replication, blockSize, 0);
 }
 
 /**

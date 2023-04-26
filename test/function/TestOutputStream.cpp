@@ -28,18 +28,20 @@
 #include "client/FileSystem.h"
 #include "client/InputStream.h"
 #include "client/OutputStream.h"
+#include "client/hdfs.h"
 #include "DateTime.h"
 #include "Exception.h"
 #include "ExceptionInternal.h"
 #include "gtest/gtest.h"
 #include "Memory.h"
 #include "TestUtil.h"
+#include "SessionConfig.h"
 #include "Thread.h"
 #include "XmlConfig.h"
 
 #include <iostream>
 #include <stdio.h>
-#include <stdlib.h>
+#include <cstdlib>
 #include <string.h>
 
 #ifndef TEST_HDFS_PREFIX
@@ -51,6 +53,32 @@
 using namespace Hdfs;
 using namespace Hdfs::Internal;
 
+static void wrappedOpen(OutputStream & ous, FileSystem & fs, const char * path,
+                        int flag = Create, const Permission permission = Permission(0644),
+                        bool createParent = false, int replication = 0, int64_t blockSize = 0) {
+    Hdfs::Internal::SessionConfig sessionConf(fs.getConf());
+    // create or append file
+    blockSize = (blockSize == 0) ? sessionConf.getDefaultBlockSize() : blockSize;
+    replication = (replication == 0) ? sessionConf.getDefaultReplica() : replication;
+    int chunkSize = sessionConf.getDefaultChunkSize();
+    int packetSize = sessionConf.getDefaultPacketSize();
+    if (packetSize < chunkSize) {
+        THROW(Hdfs::InvalidParameter,
+              "OutputStreamImpl: packet size %d is less than the chunk size %d.",
+              packetSize, chunkSize);
+    }
+
+    if (0 != blockSize % chunkSize) {
+        THROW(Hdfs::InvalidParameter,
+              "OutputStreamImpl: block size %ld is not the multiply of chunk size %d.",
+              blockSize, chunkSize);
+    }
+    std::pair<shared_ptr<LocatedBlock>, shared_ptr<Hdfs::FileStatus>> pair =
+        fs.createOrAppend(path,flag, 0777, false, replication, blockSize);
+    shared_ptr<Hdfs::FileStatus> status = pair.second;
+    ous.open(fs, path, pair, flag, 0777, false, replication,
+             blockSize, status->getFileId());
+}
 class TestOutputStream: public ::testing::Test {
 public:
     TestOutputStream() :
@@ -59,7 +87,7 @@ public:
         fs = new FileSystem(conf);
         fs->connect();
         superfs = new FileSystem(conf);
-        superfs->connect(conf.getString("dfs.default.uri"), HDFS_SUPERUSER, NULL);
+        superfs->connect(conf.getString("dfs.default.uri"), HDFS_SUPERUSER, nullptr);
         superfs->setWorkingDirectory(fs->getWorkingDirectory().c_str());
 
         try {
@@ -68,8 +96,8 @@ public:
         }
 
         superfs->mkdirs(BASE_DIR, 0755);
-        superfs->setOwner(TEST_HDFS_PREFIX, USER, NULL);
-        superfs->setOwner(BASE_DIR, USER, NULL);
+        superfs->setOwner(TEST_HDFS_PREFIX, USER, nullptr);
+        superfs->setOwner(BASE_DIR, USER, nullptr);
     }
 
     ~TestOutputStream() {
@@ -90,7 +118,7 @@ public:
     void CheckWrite(size_t size, int flag) {
         char buffer[size], buffer2[size - 100], buffer3[size + 100], readBuffer[2560];
         //check write a chunk|packet|block
-        ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
+        ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
         FillBuffer(buffer, sizeof(buffer), 0);
         ASSERT_NO_THROW(ous.append(buffer, sizeof(buffer)));
         ASSERT_NO_THROW(ous.close());
@@ -100,7 +128,7 @@ public:
         ASSERT_NO_THROW(ins.close());
         ASSERT_EQ(fs->deletePath(BASE_DIR"testWrite", false), true);
         //check write less than a chunk|packet|block
-        ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
+        ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
         FillBuffer(buffer2, sizeof(buffer2), 0);
         ASSERT_NO_THROW(ous.append(buffer2, sizeof(buffer2)));
         ASSERT_NO_THROW(ous.close());
@@ -110,7 +138,7 @@ public:
         ASSERT_NO_THROW(ins.close());
         ASSERT_EQ(fs->deletePath(BASE_DIR"testWrite", false), true);
         //check write greater than a chunk|packet|block
-        ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
+        ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
         FillBuffer(buffer3, sizeof(buffer3), 0);
         ASSERT_NO_THROW(ous.append(buffer3, sizeof(buffer3)));
         ASSERT_NO_THROW(ous.close());
@@ -126,11 +154,11 @@ public:
 
         //check overwrite a chunk|packet|block
         if (flag == Overwrite) {
-            ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", Create, 0644, false, 0, 2048));
+            ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", Create, 0644, false, 0, 2048));
             ASSERT_NO_THROW(ous.close());
         }
 
-        ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
+        ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
         FillBuffer(buffer, sizeof(buffer), 0);
         ASSERT_NO_THROW(ous.append(buffer, sizeof(buffer)));
         ASSERT_NO_THROW(ous.close());
@@ -139,7 +167,7 @@ public:
         ASSERT_EQ(CheckBuffer(readBuffer, sizeof(buffer), 0), true);
         ASSERT_NO_THROW(ins.close());
         //check overwrite less than a chunk|packet|block
-        ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
+        ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
         FillBuffer(buffer2, sizeof(buffer2), 0);
         ASSERT_NO_THROW(ous.append(buffer2, sizeof(buffer2)));
         ASSERT_NO_THROW(ous.close());
@@ -148,7 +176,7 @@ public:
         ASSERT_EQ(CheckBuffer(readBuffer, sizeof(buffer2), 0), true);
         ASSERT_NO_THROW(ins.close());
         //check overwrite greater than a chunk|packet|block
-        ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
+        ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
         FillBuffer(buffer3, sizeof(buffer3), 0);
         ASSERT_NO_THROW(ous.append(buffer3, sizeof(buffer3)));
         ASSERT_NO_THROW(ous.close());
@@ -165,7 +193,7 @@ public:
         //when outputstream is not opened, test the append function
         ASSERT_THROW(ous.append(buffer, sizeof(buffer)), HdfsIOException);
         //Test write a chunk|packet|block
-        ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
+        ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
         FillBuffer(buffer, sizeof(buffer), 0);
         ASSERT_NO_THROW(ous.append(buffer, sizeof(buffer)));
         //Test write less than a chunk|packet|block
@@ -177,7 +205,7 @@ public:
         ASSERT_NO_THROW(ous.close());
         ASSERT_EQ(fs->deletePath(BASE_DIR"testWrite", false), true);
         //Test write a chunk|packet|block
-        ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
+        ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
         FillBuffer(buffer, sizeof(buffer), 0);
         ASSERT_NO_THROW(ous.append(buffer, sizeof(buffer)));
         ASSERT_NO_THROW(ous.close());
@@ -187,7 +215,7 @@ public:
             ASSERT_EQ(fs->deletePath(BASE_DIR"testWrite", false), true);
         }
 
-        ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
+        ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
         FillBuffer(buffer2, sizeof(buffer2), 0);
         ASSERT_NO_THROW(ous.append(buffer2, sizeof(buffer2)));
         ASSERT_NO_THROW(ous.close());
@@ -197,7 +225,7 @@ public:
             ASSERT_EQ(fs->deletePath(BASE_DIR"testWrite", false), true);
         }
 
-        ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
+        ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
         FillBuffer(buffer3, sizeof(buffer3), 0);
         ASSERT_NO_THROW(ous.append(buffer3, sizeof(buffer3)));
         ASSERT_NO_THROW(ous.close());
@@ -206,7 +234,7 @@ public:
     void TestAppend(size_t size, int flag) {
         char buffer[size], buffer2[size - 100], buffer3[size + 100], readBuffer[2560];
         //Test Append a chunk|packet|block
-        ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
+        ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
         FillBuffer(buffer, sizeof(buffer), 0);
         ASSERT_NO_THROW(ous.append(buffer, sizeof(buffer)));
         //Test write less than a chunk|packet|block
@@ -226,17 +254,17 @@ public:
         ins.readFully(readBuffer, sizeof(buffer3));
         ASSERT_EQ(CheckBuffer(readBuffer, sizeof(buffer3), 2), true);
         //Test write a chunk|packet|block
-        ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
+        ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
         FillBuffer(buffer, sizeof(buffer), 0);
         ASSERT_NO_THROW(ous.append(buffer, sizeof(buffer)));
         ASSERT_NO_THROW(ous.close());
         //Test write less than a chunk|packet|block
-        ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
+        ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
         FillBuffer(buffer2, sizeof(buffer2), 1);
         ASSERT_NO_THROW(ous.append(buffer2, sizeof(buffer2)));
         ASSERT_NO_THROW(ous.close());
         //Test write greater than a chunk|packet|block
-        ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
+        ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
         FillBuffer(buffer3, sizeof(buffer3), 2);
         ASSERT_NO_THROW(ous.append(buffer3, sizeof(buffer3)));
         ASSERT_NO_THROW(ous.close());
@@ -255,7 +283,7 @@ public:
     void TestAppendSyncBlock(size_t size, int flag) {
         char buffer[size], buffer2[size - 100], buffer3[size + 100];
         //Test Append a chunk|packet|block
-        ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
+        ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
         FillBuffer(buffer, sizeof(buffer), 0);
         ASSERT_NO_THROW(ous.append(buffer, sizeof(buffer)));
         ASSERT_NO_THROW(ous.sync());
@@ -269,19 +297,19 @@ public:
         ASSERT_NO_THROW(ous.sync());
         ASSERT_NO_THROW(ous.close());
         //Test write a chunk|packet|block
-        ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
+        ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
         FillBuffer(buffer, sizeof(buffer), 0);
         ASSERT_NO_THROW(ous.append(buffer, sizeof(buffer)));
         ASSERT_NO_THROW(ous.sync());
         ASSERT_NO_THROW(ous.close());
         //Test write less than a chunk|packet|block
-        ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
+        ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
         FillBuffer(buffer2, sizeof(buffer2), 0);
         ASSERT_NO_THROW(ous.append(buffer2, sizeof(buffer2)));
         ASSERT_NO_THROW(ous.sync());
         ASSERT_NO_THROW(ous.close());
         //Test write greater than a chunk|packet|block
-        ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
+        ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
         FillBuffer(buffer3, sizeof(buffer3), 0);
         ASSERT_NO_THROW(ous.append(buffer3, sizeof(buffer3)));
         ASSERT_NO_THROW(ous.sync());
@@ -291,7 +319,7 @@ public:
     void TestCreateSyncBlock(size_t size, int flag) {
         char buffer[size], buffer2[size - 100], buffer3[size + 100];
         //Test Append a chunk|packet|block
-        ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
+        ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
         FillBuffer(buffer, sizeof(buffer), 0);
         ASSERT_NO_THROW(ous.append(buffer, sizeof(buffer)));
         ASSERT_NO_THROW(ous.sync());
@@ -306,21 +334,21 @@ public:
         ASSERT_NO_THROW(ous.close());
         //Test write a chunk|packet|block
         ASSERT_EQ(fs->deletePath(BASE_DIR"testWrite", false), true);
-        ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
+        ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
         FillBuffer(buffer, sizeof(buffer), 0);
         ASSERT_NO_THROW(ous.append(buffer, sizeof(buffer)));
         ASSERT_NO_THROW(ous.sync());
         ASSERT_NO_THROW(ous.close());
         //Test write less than a chunk|packet|block
         ASSERT_EQ(fs->deletePath(BASE_DIR"testWrite", false), true);
-        ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
+        ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
         FillBuffer(buffer2, sizeof(buffer2), 0);
         ASSERT_NO_THROW(ous.append(buffer2, sizeof(buffer2)));
         ASSERT_NO_THROW(ous.sync());
         ASSERT_NO_THROW(ous.close());
         //Test write greater than a chunk|packet|block
         ASSERT_EQ(fs->deletePath(BASE_DIR"testWrite", false), true);
-        ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
+        ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
         FillBuffer(buffer3, sizeof(buffer3), 0);
         ASSERT_NO_THROW(ous.append(buffer3, sizeof(buffer3)));
         ASSERT_NO_THROW(ous.sync());
@@ -331,7 +359,7 @@ public:
     void TestOverwriteSyncBlock(size_t size, int flag) {
         char buffer[size], buffer2[size - 100], buffer3[size + 100];
         //Test Append a chunk|packet|block
-        ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
+        ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
         FillBuffer(buffer, sizeof(buffer), 0);
         ASSERT_NO_THROW(ous.append(buffer, sizeof(buffer)));
         ASSERT_NO_THROW(ous.sync());
@@ -345,19 +373,19 @@ public:
         ASSERT_NO_THROW(ous.sync());
         ASSERT_NO_THROW(ous.close());
         //Test write a chunk|packet|block
-        ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
+        ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
         FillBuffer(buffer, sizeof(buffer), 0);
         ASSERT_NO_THROW(ous.append(buffer, sizeof(buffer)));
         ASSERT_NO_THROW(ous.sync());
         ASSERT_NO_THROW(ous.close());
         //Test write less than a chunk|packet|block
-        ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
+        ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
         FillBuffer(buffer2, sizeof(buffer2), 0);
         ASSERT_NO_THROW(ous.append(buffer2, sizeof(buffer2)));
         ASSERT_NO_THROW(ous.sync());
         ASSERT_NO_THROW(ous.close());
         //Test write greater than a chunk|packet|block
-        ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
+        ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
         FillBuffer(buffer3, sizeof(buffer3), 0);
         ASSERT_NO_THROW(ous.append(buffer3, sizeof(buffer3)));
         ASSERT_NO_THROW(ous.sync());
@@ -367,7 +395,7 @@ public:
     void TestFlush(size_t size, int flag) {
         char buffer[size], buffer2[size - 100], buffer3[size + 100];
         //Test Append a chunk|packet|block
-        ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
+        ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
         FillBuffer(buffer, sizeof(buffer), 0);
         ASSERT_NO_THROW(ous.append(buffer, sizeof(buffer)));
         ASSERT_NO_THROW(ous.flush());
@@ -381,19 +409,19 @@ public:
         ASSERT_NO_THROW(ous.flush());
         ASSERT_NO_THROW(ous.close());
         //Test write a chunk|packet|block
-        ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
+        ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
         FillBuffer(buffer, sizeof(buffer), 0);
         ASSERT_NO_THROW(ous.append(buffer, sizeof(buffer)));
         ASSERT_NO_THROW(ous.flush());
         ASSERT_NO_THROW(ous.close());
         //Test write less than a chunk|packet|block
-        ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
+        ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
         FillBuffer(buffer2, sizeof(buffer2), 0);
         ASSERT_NO_THROW(ous.append(buffer2, sizeof(buffer2)));
         ASSERT_NO_THROW(ous.flush());
         ASSERT_NO_THROW(ous.close());
         //Test write greater than a chunk|packet|block
-        ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
+        ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", flag, 0644, false, 0, 2048));
         FillBuffer(buffer3, sizeof(buffer3), 0);
         ASSERT_NO_THROW(ous.append(buffer3, sizeof(buffer3)));
         ASSERT_NO_THROW(ous.flush());
@@ -412,113 +440,113 @@ TEST_F(TestOutputStream, TestOpenFile_OpenFailed) {
     {
         //invalid path
         OutputStream os;
-        EXPECT_THROW(os.open(*fs, "", Create), InvalidParameter);
+        EXPECT_THROW(wrappedOpen(os, *fs, "", Create), InvalidParameter);
     }
     {
         //invalid path
         OutputStream os;
-        EXPECT_THROW(os.open(*fs, NULL, Create), InvalidParameter);
+        EXPECT_THROW(wrappedOpen(os, *fs, nullptr, Create), InvalidParameter);
     }
     {
         //unconnect filesystem
         FileSystem fs(conf);
         OutputStream os;
-        EXPECT_THROW(os.open(fs, BASE_DIR"a", Create), HdfsIOException);
+        EXPECT_THROW(wrappedOpen(os, fs, BASE_DIR"a", Create), HdfsIOException);
     }
     {
         //path already exist as directory.
         OutputStream os;
-        EXPECT_THROW(os.open(*fs, BASE_DIR, Create), FileAlreadyExistsException);
+        EXPECT_THROW(wrappedOpen(os, *fs, BASE_DIR, Create), FileAlreadyExistsException);
     }
     {
         //invalid flag
         OutputStream os;
-        EXPECT_THROW(os.open(*fs, BASE_DIR"a", Append | Overwrite),
+        EXPECT_THROW(wrappedOpen(os, *fs, BASE_DIR"a", Append | Overwrite),
                      InvalidParameter);
     }
     {
         //invalid flag
         OutputStream os;
-        EXPECT_THROW(os.open(*fs, BASE_DIR"a", Create | Append | Overwrite),
+        EXPECT_THROW(wrappedOpen(os, *fs, BASE_DIR"a", Create | Append | Overwrite),
                      InvalidParameter);
     }
     {
         //invalid flag
         OutputStream os;
-        EXPECT_THROW(os.open(*fs, BASE_DIR"a", 0100000000), InvalidParameter);
+        EXPECT_THROW(wrappedOpen(os, *fs, BASE_DIR"a", 0100000000), InvalidParameter);
     }
     {
         //invalid flag
         OutputStream os;
-        EXPECT_THROW(os.open(*fs, BASE_DIR"a", -1), InvalidParameter);
+        EXPECT_THROW(wrappedOpen(os, *fs, BASE_DIR"a", -1), InvalidParameter);
     }
     {
         //invalid flag
         OutputStream os;
-        EXPECT_THROW(os.open(*fs, BASE_DIR"a", 0), InvalidParameter);
+        EXPECT_THROW(wrappedOpen(os, *fs, BASE_DIR"a", 0), InvalidParameter);
     }
     {
         //invalid permission.
         OutputStream os;
-        EXPECT_THROW(os.open(*fs, BASE_DIR"a", Create, (1u << 10)),
+        EXPECT_THROW(wrappedOpen(os, *fs, BASE_DIR"a", Create, (1u << 10)),
                      InvalidParameter);
     }
     {
         //invalid replica number.
         OutputStream os;
-        EXPECT_THROW(os.open(*fs, BASE_DIR"a", Create, 0644, false, -1),
+        EXPECT_THROW(wrappedOpen(os, *fs, BASE_DIR"a", Create, 0644, false, -1),
                      InvalidParameter);
     }
     {
         //invalid block size.
         OutputStream os;
-        EXPECT_THROW(os.open(*fs, BASE_DIR"a", Create, 0644, false, 0, -1),
+        EXPECT_THROW(wrappedOpen(os, *fs, BASE_DIR"a", Create, 0644, false, 0, -1),
                      InvalidParameter);
     }
     {
         //invalid block size.
         OutputStream os;
-        EXPECT_THROW(os.open(*fs, BASE_DIR"a", Create, 0644, false, 0, 1234),
+        EXPECT_THROW(wrappedOpen(os, *fs, BASE_DIR"a", Create, 0644, false, 0, 1234),
                      InvalidParameter);
     }
     {
         //Overwrite non-exist file
         OutputStream os;
-        EXPECT_THROW(os.open(*fs, BASE_DIR"a", Overwrite),
+        EXPECT_THROW(wrappedOpen(os, *fs, BASE_DIR"a", Overwrite),
                      FileNotFoundException);
     }
 }
 
 TEST_F(TestOutputStream, TestOpenFileForWrite) {
     ASSERT_NO_THROW(
-        ous.open(*fs, BASE_DIR"//////b/c/d/././e/../../../../a", Create));
+        wrappedOpen(ous, *fs, BASE_DIR"a", Create));
     //open an opened file
     OutputStream other;
-    EXPECT_THROW(other.open(*fs, BASE_DIR"a", Create),
+    EXPECT_THROW(wrappedOpen(other, *fs, BASE_DIR"a", Create),
                  AlreadyBeingCreatedException);
     ous.close();
     //create an exist file
-    ASSERT_THROW(ous.open(*fs, BASE_DIR"a", Create), FileAlreadyExistsException);
+    ASSERT_THROW(wrappedOpen(ous, *fs, BASE_DIR"a", Create), FileAlreadyExistsException);
     //open for append
-    ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"a", Append));
+    ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"a", Append));
     ous.close();
     //overwrite an exist file
-    ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"a", Overwrite));
+    ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"a", Overwrite));
     ous.close();
     //create or append an exist file
-    ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"a", Create | Append));
+    ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"a", Create | Append));
     ous.close();
     //create or append a non-exist file
-    ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"b", Create | Append));
+    ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"b", Create | Append));
     ous.close();
     //create new file with SyncBlock flag
-    ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"c", Create | SyncBlock));
+    ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"c", Create | SyncBlock));
     ous.close();
     //append file with SyncBlock flag
-    ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"c", Append | SyncBlock));
+    ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"c", Append | SyncBlock));
     ous.close();
     //overwrite file with SyncBlock flag
-    ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"c", Overwrite | SyncBlock));
+    ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"c", Overwrite | SyncBlock));
     ous.close();
 }
 
@@ -526,60 +554,60 @@ TEST_F(TestOutputStream, TestOpenFileForWrite) {
 
 TEST_F(TestOutputStream, TestWriteChunkPacket) {
     //test create a file and write a block
-    ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", Create, 0644, false, 0, 2048));
+    ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", Create, 0644, false, 0, 2048));
     char buffer[512], buffer2[1024];
     FillBuffer(buffer, sizeof(buffer), 0);
     ASSERT_NO_THROW(ous.append(buffer, sizeof(buffer)));
     ASSERT_NO_THROW(ous.close());
     //test append a packet to a file
-    ASSERT_THROW(ous.open(*fs, BASE_DIR"testWriteNotExist", Append, 0644, false, 0, 2048), FileNotFoundException);
-    ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", Append, 0644, false, 0, 2048));
+    ASSERT_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWriteNotExist", Append, 0644, false, 0, 2048), FileNotFoundException);
+    ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", Append, 0644, false, 0, 2048));
     FillBuffer(buffer2, sizeof(buffer2), 0);
     ASSERT_NO_THROW(ous.append(buffer2, sizeof(buffer2)));
     ASSERT_NO_THROW(ous.append(buffer2, sizeof(buffer2)));
     ASSERT_NO_THROW(ous.sync());
     ASSERT_NO_THROW(ous.close());
     //test overwrite a file
-    ASSERT_THROW(ous.open(*fs, BASE_DIR"testWriteNotExist", Overwrite, 0644, false, 0, 2048), FileNotFoundException);
-    ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", Overwrite, 0644, false, 0, 2048));
+    ASSERT_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWriteNotExist", Overwrite, 0644, false, 0, 2048), FileNotFoundException);
+    ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", Overwrite, 0644, false, 0, 2048));
     FillBuffer(buffer, sizeof(buffer), 0);
     ASSERT_NO_THROW(ous.append(buffer, sizeof(buffer)));
     ASSERT_NO_THROW(ous.close());
-    //test  create|Append
-    ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", Create | Append, 0644, false, 0, 2048));
+    //test create|Append
+    ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", Create | Append, 0644, false, 0, 2048));
     FillBuffer(buffer, sizeof(buffer), 0);
     ASSERT_NO_THROW(ous.append(buffer, sizeof(buffer)));
     ASSERT_NO_THROW(ous.close());
     ASSERT_EQ(fs->deletePath(BASE_DIR"testWrite", false), 1);
-    ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", Create | Append, 0644, false, 0, 2048));
+    ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", Create | Append, 0644, false, 0, 2048));
     FillBuffer(buffer, sizeof(buffer), 0);
     ASSERT_NO_THROW(ous.append(buffer, sizeof(buffer)));
     ASSERT_NO_THROW(ous.close());
     //test create|Overwrite
-    ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", Create | Overwrite, 0644, false, 0, 2048));
+    ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", Create | Overwrite, 0644, false, 0, 2048));
     FillBuffer(buffer, sizeof(buffer), 0);
     ASSERT_NO_THROW(ous.append(buffer, sizeof(buffer)));
     ASSERT_NO_THROW(ous.close());
     ASSERT_EQ(fs->deletePath(BASE_DIR"testWrite", false), 1);
-    ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", Create | Overwrite, 0644, false, 0, 2048));
+    ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", Create | Overwrite, 0644, false, 0, 2048));
     FillBuffer(buffer, sizeof(buffer), 0);
     ASSERT_NO_THROW(ous.append(buffer, sizeof(buffer)));
     ASSERT_NO_THROW(ous.close());
     //test create|SyncBlock
     ASSERT_EQ(fs->deletePath(BASE_DIR"testWrite", false), 1);
-    ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", Create | SyncBlock, 0644, false, 0, 2048));
+    ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", Create | SyncBlock, 0644, false, 0, 2048));
     FillBuffer(buffer, sizeof(buffer), 0);
     ASSERT_NO_THROW(ous.append(buffer, sizeof(buffer)));
     ASSERT_NO_THROW(ous.sync());
     ASSERT_NO_THROW(ous.close());
     //test Append|SyncBlock
-    ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", Append | SyncBlock, 0644, false, 0, 2048));
+    ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", Append | SyncBlock, 0644, false, 0, 2048));
     FillBuffer(buffer, sizeof(buffer), 0);
     ASSERT_NO_THROW(ous.append(buffer, sizeof(buffer)));
     ASSERT_NO_THROW(ous.sync());
     ASSERT_NO_THROW(ous.close());
     //test Overwrite|SyncBlock
-    ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", Overwrite | SyncBlock, 0644, false, 0, 2048));
+    ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", Overwrite | SyncBlock, 0644, false, 0, 2048));
     FillBuffer(buffer, sizeof(buffer), 0);
     ASSERT_NO_THROW(ous.append(buffer, sizeof(buffer)));
     ASSERT_NO_THROW(ous.sync());
@@ -628,22 +656,22 @@ TEST_F(TestOutputStream, TestWrite) {
 }
 
 TEST_F(TestOutputStream, TestAppend) {
-    ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", Create, 0644, false, 0, 2048));
+    ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", Create, 0644, false, 0, 2048));
     ous.close();
     TestAppend(512, Append);
     fs->deletePath(BASE_DIR"testWrite", false);
-    ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", Create, 0644, false, 0, 2048));
+    ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", Create, 0644, false, 0, 2048));
     ous.close();
     TestAppend(1024, Append);
     fs->deletePath(BASE_DIR"testWrite", false);
-    ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", Create, 0644, false, 0, 2048));
+    ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", Create, 0644, false, 0, 2048));
     ous.close();
     TestAppend(2048, Append);
     fs->deletePath(BASE_DIR"testWrite", false);
 }
 
 TEST_F(TestOutputStream, TestAppendSyncBlock) {
-    ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", Create, 0644, false, 0, 2048));
+    ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", Create, 0644, false, 0, 2048));
     ous.close();
     TestAppendSyncBlock(512, Append | SyncBlock);
     TestAppendSyncBlock(1024, Append | SyncBlock);
@@ -660,7 +688,7 @@ TEST_F(TestOutputStream, TestCreateSyncBlock) {
 }
 
 TEST_F(TestOutputStream, TestOverwriteSyncBlock) {
-    ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", Create, 0644, false, 0, 2048));
+    ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", Create, 0644, false, 0, 2048));
     ous.close();
     TestOverwriteSyncBlock(512, Overwrite | SyncBlock);
     TestOverwriteSyncBlock(1024, Overwrite | SyncBlock);
@@ -668,7 +696,7 @@ TEST_F(TestOutputStream, TestOverwriteSyncBlock) {
 }
 
 TEST_F(TestOutputStream, TestFlush) {
-    ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", Create, 0644, false, 0, 2048));
+    ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", Create, 0644, false, 0, 2048));
     ous.close();
     TestFlush(512, Append);
     TestFlush(1024, Append);
@@ -677,7 +705,7 @@ TEST_F(TestOutputStream, TestFlush) {
 
 TEST_F(TestOutputStream, TestTell) {
     char buffer[512];
-    ASSERT_NO_THROW(ous.open(*fs, BASE_DIR"testWrite", Create, 0644, false, 0, 2048));
+    ASSERT_NO_THROW(wrappedOpen(ous, *fs, BASE_DIR"testWrite", Create, 0644, false, 0, 2048));
     FillBuffer(buffer, sizeof(buffer), 0);
     ASSERT_NO_THROW(ous.append(buffer, sizeof(buffer)));
     ASSERT_EQ(ous.tell(), sizeof(buffer));
@@ -709,7 +737,7 @@ static void WriteSameTime(FileSystem * fs, std::string path, int flag, int64_t w
     size_t  offset = 0;
     todo = writeSize;
     OutputStream ousA;
-    EXPECT_NO_THROW(DebugException(ousA.open(*fs, path.c_str(), flag, 0644, false, 0, 1024 * 1024)));
+    EXPECT_NO_THROW(DebugException(wrappedOpen(ousA, *fs, path.c_str(), flag, 0644, false, 0, 1024 * 1024)));
 
     while (todo > 0) {
         batch = todo < static_cast<int>(buffer.size()) ? todo : buffer.size();
@@ -747,28 +775,3 @@ TEST_F(TestOutputStream, TestWriteSameTime) {
         threads[i]->join();
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
