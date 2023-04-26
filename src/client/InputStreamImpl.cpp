@@ -133,6 +133,11 @@ InputStreamImpl::InputStreamImpl() :
 #endif
 }
 
+InputStreamImpl::InputStreamImpl(shared_ptr<LocatedBlocks> lbsPtr) {
+    new (this)InputStreamImpl();
+    lbs = lbsPtr;
+}
+
 InputStreamImpl::~InputStreamImpl() {
 }
 
@@ -210,6 +215,14 @@ int64_t InputStreamImpl::readBlockLength(const LocatedBlock & b) {
  * Getting blocks locations'information from namenode
  */
 void InputStreamImpl::updateBlockInfos() {
+    updateBlockInfos(true);
+}
+
+/**
+ * Getting blocks locations'information from namenode
+ * @param need Whether getBlockLocations needs to be called.
+ */
+void InputStreamImpl::updateBlockInfos(bool need) {
     int retry = maxGetBlockInfoRetry;
 
     for (int i = 0; i < retry; ++i) {
@@ -218,7 +231,12 @@ void InputStreamImpl::updateBlockInfos() {
                 lbs = shared_ptr < LocatedBlocksImpl > (new LocatedBlocksImpl);
             }
 
-            filesystem->getBlockLocations(path, cursor, prefetchSize, *lbs);
+            if (need) {
+                filesystem->getBlockLocations(path, cursor, prefetchSize, *lbs);
+            }
+
+            // set true for retry scenario
+            need = true;
 
             if (lbs->isLastBlockComplete()) {
                 lastBlockBeingWrittenLength = 0;
@@ -355,10 +373,9 @@ void InputStreamImpl::setupBlockReader(bool temporaryDisableLocalRead) {
 
                 shared_ptr<ReadShortCircuitInfo> info;
                 ReadShortCircuitInfoBuilder builder(curNode, auth, *conf);
-                EncryptionKey ekey = filesystem->getEncryptionKeys();
 
                 try {
-                    info = builder.fetchOrCreate(*curBlock, curBlock->getToken(), ekey);
+                    info = builder.fetchOrCreate(*curBlock, curBlock->getToken());
 
                     if (!info) {
                         continue;
@@ -379,7 +396,6 @@ void InputStreamImpl::setupBlockReader(bool temporaryDisableLocalRead) {
                 const char * clientName = filesystem->getClientName();
                 lastReadFromLocal = false;
                 blockReader = shared_ptr<BlockReader>(new RemoteBlockReader(
-                    filesystem,
                     *curBlock, curNode, *peerCache, offset, len,
                     curBlock->getToken(), clientName, verify, *conf));
             }
@@ -400,16 +416,10 @@ void InputStreamImpl::setupBlockReader(bool temporaryDisableLocalRead) {
                  * disable local block reading
                  */
             } else {
-                if (conf->getEncryptedDatanode() || conf->getSecureDatanode())
-                    LOG(WARNING,
-                        "cannot setup block reader for Block: %s file %s on Datanode: %s retry another node",
-                        curBlock->toString().c_str(), path.c_str(),
-                        curNode.formatAddress().c_str());
-                else
-                    LOG(LOG_ERROR,
-                        "cannot setup block reader for Block: %s file %s on Datanode: %s.\n%s\nretry another node",
-                        curBlock->toString().c_str(), path.c_str(),
-                        curNode.formatAddress().c_str(), GetExceptionDetail(e, buffer));
+                LOG(LOG_ERROR,
+                    "cannot setup block reader for Block: %s file %s on Datanode: %s.\n%s\nretry another node",
+                    curBlock->toString().c_str(), path.c_str(),
+                    curNode.formatAddress().c_str(), GetExceptionDetail(e, buffer));
                 failedNodes.push_back(curNode);
                 std::sort(failedNodes.begin(), failedNodes.end());
             }
@@ -444,7 +454,7 @@ void InputStreamImpl::openInternal(shared_ptr<FileSystemInter> fs, const char * 
         localRead = conf->isReadFromLocal();
         maxGetBlockInfoRetry = conf->getMaxGetBlockInfoRetry();
         peerCache = &fs->getPeerCache();
-        updateBlockInfos();
+        updateBlockInfos(!lbs);
         closed = false;
     } catch (const HdfsCanceled & e) {
         throw;
@@ -489,7 +499,7 @@ int32_t InputStreamImpl::readOneBlock(char * buf, int32_t size, bool shouldUpdat
         } catch (const HdfsInvalidBlockToken & e) {
             std::string buffer;
             LOG(LOG_ERROR,
-                "InputStreamImpl: failed to read Block (stale token): %s file %s, \n%s, retry after updating block informations.",
+                "InputStreamImpl: failed to read Block: %s file %s, \n%s, retry after updating block informations.",
                 curBlock->toString().c_str(), path.c_str(), GetExceptionDetail(e, buffer));
             return -1;
         } catch (const HdfsIOException & e) {
@@ -498,15 +508,10 @@ int32_t InputStreamImpl::readOneBlock(char * buf, int32_t size, bool shouldUpdat
              * We now update block informations once, and try again.
              */
             if (shouldUpdateMetadataOnFailure) {
-                if (conf->getEncryptedDatanode() || conf->getSecureDatanode())
-                    LOG(WARNING,
-                        "InputStreamImpl: failed to read Block: %s file %s, retry after updating block informations.",
-                        curBlock->toString().c_str(), path.c_str());
-                else
-                    LOG(LOG_ERROR,
-                        "InputStreamImpl: failed to read Block: %s file %s, \n%s, retry after updating block informations.",
-                        curBlock->toString().c_str(), path.c_str(),
-                        GetExceptionDetail(e, buffer));
+                LOG(LOG_ERROR,
+                    "InputStreamImpl: failed to read Block: %s file %s, \n%s, retry after updating block informations.",
+                    curBlock->toString().c_str(), path.c_str(),
+                    GetExceptionDetail(e, buffer));
                 return -1;
             } else {
                 /*
@@ -601,7 +606,7 @@ int32_t InputStreamImpl::readInternal(char * buf, int32_t size) {
                  * Check if we reach the end of file.
                  */
                 if (cursor >= getFileLength()) {
-                    THROW(HdfsEndOfStream,
+                    THROW_NO_STACK(HdfsEndOfStream,
                           "InputStreamImpl: read over EOF, current position: %" PRId64 ", read size: %d, from file: %s",
                           cursor, size, path.c_str());
                 }
@@ -696,7 +701,7 @@ void InputStreamImpl::readFullyInternal(char * buf, int64_t size) {
     } catch (const HdfsCanceled & e) {
         throw;
     } catch (const HdfsEndOfStream & e) {
-        THROW(HdfsEndOfStream,
+        THROW_NO_STACK(HdfsEndOfStream,
               "InputStreamImpl: read over EOF, current position: %" PRId64 ", read size: %" PRId64 ", from file: %s",
               pos, size, path.c_str());
     } catch (const HdfsException & e) {
@@ -746,14 +751,14 @@ void InputStreamImpl::seekInternal(int64_t pos) {
         updateBlockInfos();
 
         if (pos > getFileLength()) {
-            THROW(HdfsEndOfStream,
+            THROW_NO_STACK(HdfsEndOfStream,
                   "InputStreamImpl: seek over EOF, current position: %" PRId64 ", seek target: %" PRId64 ", in file: %s",
                   cursor, pos, path.c_str());
         }
     }
 
     try {
-        if (blockReader && pos > cursor && pos < endOfCurBlock) {
+        if (blockReader && pos > cursor && pos < endOfCurBlock && pos - cursor <= 128 * 1024) {
             blockReader->skip(pos - cursor);
             cursor = pos;
             return;

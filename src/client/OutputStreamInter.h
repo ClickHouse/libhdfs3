@@ -54,9 +54,10 @@ public:
      * @param replication create a file with given number of replication.
      * @param blockSize  create a file with given block size.
      */
-    virtual void open(shared_ptr<FileSystemInter> fs, const char * path, int flag,
-                      const Permission & permission, bool createParent, int replication,
-                      int64_t blockSize) = 0;
+    virtual void open(shared_ptr<FileSystemInter> fs, const char * path,
+                      std::pair<shared_ptr<LocatedBlock>, shared_ptr<Hdfs::FileStatus>> & pair,
+                      int flag, const Permission & permission, bool createParent, int replication,
+                      int64_t blockSize, int64_t fileId) = 0;
 
     /**
      * To append data to file.

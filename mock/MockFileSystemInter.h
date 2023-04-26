@@ -75,20 +75,20 @@ public:
   MOCK_METHOD0(getDelegationToken, std::string());
   MOCK_METHOD1(renewDelegationToken, int64_t(const std::string & token));
   MOCK_METHOD1(cancelDelegationToken, void(const std::string & token));
-  MOCK_METHOD6(create, void(const std::string & src, const Hdfs::Permission & masked, int flag, bool createParent, short replication, int64_t blockSize));
-  MOCK_METHOD1(append, std::pair<Hdfs::Internal::shared_ptr<Hdfs::Internal::LocatedBlock>,
-               Hdfs::Internal::shared_ptr<Hdfs::FileStatus> >(const std::string & src));
-  MOCK_METHOD2(abandonBlock, void(const Hdfs::Internal::ExtendedBlock & b, const std::string & srcr));
-  MOCK_METHOD3(addBlock, Hdfs::Internal::shared_ptr<Hdfs::Internal::LocatedBlock>(const std::string & src,
+  MOCK_METHOD6(create, Hdfs::FileStatus(const std::string & src, const Hdfs::Permission & masked, int flag, bool createParent, short replication, int64_t blockSize));
+  MOCK_METHOD2(append, std::pair<Hdfs::Internal::shared_ptr<Hdfs::Internal::LocatedBlock>,
+               Hdfs::Internal::shared_ptr<Hdfs::FileStatus> >(const std::string & src, const uint32_t & flag));
+  MOCK_METHOD3(abandonBlock, void(const Hdfs::Internal::ExtendedBlock & b, const std::string & srcr, int64_t fileId));
+  MOCK_METHOD4(addBlock, Hdfs::Internal::shared_ptr<Hdfs::Internal::LocatedBlock>(const std::string & src,
           const Hdfs::Internal::ExtendedBlock * previous,
-          const std::vector<Hdfs::Internal::DatanodeInfo> & excludeNodes));
+          const std::vector<Hdfs::Internal::DatanodeInfo> & excludeNodes, int64_t fileId));
   MOCK_METHOD6(getAdditionalDatanode, Hdfs::Internal::shared_ptr<Hdfs::Internal::LocatedBlock> (const std::string & src,
           const Hdfs::Internal::ExtendedBlock & blk,
           const std::vector<Hdfs::Internal::DatanodeInfo> & existings,
           const std::vector<std::string> & storageIDs,
           const std::vector<Hdfs::Internal::DatanodeInfo> & excludes, int numAdditionalNodes));
-  MOCK_METHOD2(complete, bool(const std::string & src,
-          const Hdfs::Internal::ExtendedBlock * last));
+  MOCK_METHOD3(complete, bool(const std::string & src,
+          const Hdfs::Internal::ExtendedBlock * last, int64_t fileId));
   MOCK_METHOD1(reportBadBlocks, void(const std::vector<Hdfs::Internal::LocatedBlock> & blocks));
   MOCK_METHOD1(fsync, void(const std::string & src));
   MOCK_METHOD1(updateBlockForPipeline, Hdfs::Internal::shared_ptr<Hdfs::Internal::LocatedBlock>(const Hdfs::Internal::ExtendedBlock & block));

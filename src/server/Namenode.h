@@ -41,7 +41,6 @@
 #include "rpc/RpcConfig.h"
 #include "rpc/RpcProtocolInfo.h"
 #include "rpc/RpcServerInfo.h"
-#include "server/EncryptionKey.h"
 #include "SessionConfig.h"
 
 #include <vector>
@@ -56,8 +55,6 @@ public:
      */
     virtual ~Namenode() {
     }
-
-    virtual EncryptionKey getEncryptionKeys() = 0;
 
     /**
      * Get locations of the blocks of the specified file within the specified range.
@@ -132,9 +129,9 @@ public:
      * RuntimeExceptions:
      * @throw InvalidPathException Path <code>src</code> is invalid
      */
-    virtual void create(const std::string & src, const Permission & masked,
-                        const std::string & clientName, int flag, bool createParent,
-                        short replication, int64_t blockSize) /* throw (AccessControlException,
+    virtual FileStatus create(const std::string & src, const Permission & masked,
+                              const std::string & clientName, int flag, bool createParent,
+                              short replication, int64_t blockSize) /* throw (AccessControlException,
              AlreadyBeingCreatedException, DSQuotaExceededException,
              FileAlreadyExistsException, FileNotFoundException,
              NSQuotaExceededException, ParentNotDirectoryException,
@@ -144,8 +141,7 @@ public:
      * Append to the end of the file.
      * @param src path of the file being created.
      * @param clientName name of the current client.
-     * @param information about the last partial block if any.
-     * @param lb output the returned block.s
+     * @param flag create flag.
      *
      * @throw AccessControlException if permission to append file is
      * denied by the system. As usually on the client side the exception will
@@ -166,7 +162,7 @@ public:
      * @throw UnsupportedOperationException if append is not supported
      */
     virtual std::pair<shared_ptr<LocatedBlock>, shared_ptr<FileStatus>> append(
-        const std::string& src, const std::string& clientName)
+        const std::string& src, const std::string& clientName, const uint32_t& flag)
         /* throw (AccessControlException,
              DSQuotaExceededException, FileNotFoundException,
              SafeModeException, UnresolvedLinkException, HdfsIOException) */ = 0;
@@ -245,7 +241,8 @@ public:
      * @throw HdfsIOException If an I/O error occurred
      */
     virtual void abandonBlock(const ExtendedBlock & b, const std::string & src,
-                              const std::string & holder) /* throw (AccessControlException,
+                              const std::string & holder, int64_t fileId) 
+             /* throw (AccessControlException,
              FileNotFoundException, UnresolvedLinkException,
              HdfsIOException) */ = 0;
 
@@ -265,6 +262,7 @@ public:
      * @param clientName the name of the client that adds the block
      * @param previous  previous block
      * @param excludeNodes a list of nodes that should not be
+     * @param fileId the inode id of the file.
      * allocated for the current block
      *
      * @param LocatedBlock allocated block information.
@@ -281,7 +279,7 @@ public:
      */
     virtual shared_ptr<LocatedBlock> addBlock(const std::string & src,
             const std::string & clientName, const ExtendedBlock * previous,
-            const std::vector<DatanodeInfo> & excludeNodes)
+            const std::vector<DatanodeInfo> & excludeNodes, int64_t fileId)
     /* throw (AccessControlException, FileNotFoundException,
      NotReplicatedYetException, SafeModeException,
      UnresolvedLinkException, HdfsIOException) */ = 0;
@@ -338,7 +336,7 @@ public:
      * @throw HdfsIOException If an I/O error occurred
      */
     virtual bool complete(const std::string & src,
-                          const std::string & clientName, const ExtendedBlock * last)
+                          const std::string & clientName, const ExtendedBlock * last, int64_t fileId)
     /* throw (AccessControlException, FileNotFoundException,
      SafeModeException, UnresolvedLinkException, HdfsIOException) */ = 0;
 

@@ -40,7 +40,6 @@
 #include "server/Namenode.h"
 #include "SessionConfig.h"
 #include "Thread.h"
-#include "DataTransferProtocolSender.h"
 
 #include <vector>
 #include <deque>
@@ -131,10 +130,18 @@ public:
     /**
      * construct and setup the pipeline for append.
      */
-    PipelineImpl(bool append, const char * path, SessionConfig & conf,
+    PipelineImpl(const char * path, SessionConfig & conf,
                  shared_ptr<FileSystemInter> filesystem, int checksumType, int chunkSize,
                  int replication, int64_t bytesSent, PacketPool & packetPool,
-                 shared_ptr<LocatedBlock> lastBlock);
+                 shared_ptr<LocatedBlock> lastBlock, int64_t fileId);
+
+    /**
+     * construct and setup the pipeline for append.
+     */
+    PipelineImpl(bool append, const char * path, const SessionConfig & conf,
+                 shared_ptr<FileSystemInter> filesystem, int checksumType, int chunkSize,
+                 int replication, int64_t bytesSent, PacketPool & packetPool,
+                 shared_ptr<LocatedBlock> lastBlock, int64_t fileId);
 
     /**
      * send all data and wait for all ack.
@@ -152,31 +159,47 @@ public:
      */
     void send(shared_ptr<Packet> packet);
 
+    /**
+     * get the size of bytes has sent.
+     * @return bytesSent
+     */
+    int64_t getBytesSent();
+
+    /**
+     * wait for acks from datanode.
+     * @param force
+     */
+    void waitForAcks(bool force);
+
+    /**
+     * Is pipeline closed. Return true if pipeline is closed.
+     * @return bool
+     */
+    bool isClosed();
+
+    void createBlockOutputStream(const Token & token, int64_t gs, bool recovery);
+
 private:
     bool addDatanodeToPipeline(const std::vector<DatanodeInfo> & excludedNodes);
     void buildForAppendOrRecovery(bool recovery);
     void buildForNewBlock();
     void checkPipelineWithReplicas();
     void checkResponse(bool wait);
-    void createBlockOutputStream(const Token & token, int64_t gs, bool recovery);
     void locateNextBlock(const std::vector<DatanodeInfo> & excludedNodes);
     void processAck(PipelineAck & ack);
     void processResponse();
     void resend();
-    void waitForAcks(bool force);
     void transfer(const ExtendedBlock & blk, const DatanodeInfo & src,
                   const std::vector<DatanodeInfo> & targets,
                   const Token & token);
     int findNewDatanode(const std::vector<DatanodeInfo> & original);
 
-private:
+protected:
     static void checkBadLinkFormat(const std::string & node);
 
-private:
-    SessionConfig & config;
+protected:
     BlockConstructionStage stage;
     bool canAddDatanode;
-    bool canAddDatanodeBest;
     int blockWriteRetry;
     int checksumType;
     int chunkSize;
@@ -189,7 +212,6 @@ private:
     int64_t bytesSent; //the size of bytes has sent.
     PacketPool & packetPool;
     shared_ptr<BufferedSocketReader> reader;
-    shared_ptr<DataTransferProtocolSender> sender;
     shared_ptr<FileSystemInter> filesystem;
     shared_ptr<LocatedBlock> lastBlock;
     shared_ptr<Socket> sock;
@@ -198,7 +220,25 @@ private:
     std::string path;
     std::vector<DatanodeInfo> nodes;
     std::vector<std::string> storageIDs;
+    int64_t fileId;
 
+};
+
+class StripedPipelineImpl : public PipelineImpl {
+public:
+    /**
+     * construct and setup the pipeline for append.
+     */
+    StripedPipelineImpl(const char * path, SessionConfig & conf,
+                 shared_ptr<FileSystemInter> filesystem, int checksumType, int chunkSize,
+                 int replication, int64_t bytesSent, PacketPool & packetPool,
+                 shared_ptr<LocatedBlock> lastBlock, int64_t fileId);
+
+private:
+    void buildForNewBlock(shared_ptr<LocatedBlock> block);
+
+private:
+    shared_ptr<LocatedBlock> lastBlock;
 };
 
 }

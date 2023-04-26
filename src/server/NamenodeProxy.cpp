@@ -246,25 +246,18 @@ void NamenodeProxy::getBlockLocations(const std::string & src, int64_t offset,
     NAMENODE_HA_RETRY_END();
 }
 
-EncryptionKey NamenodeProxy::getEncryptionKeys() {
-    EncryptionKey key;
+FileStatus NamenodeProxy::create(const std::string & src, const Permission & masked,
+                                 const std::string & clientName, int flag, bool createParent,
+                                 short replication, int64_t blockSize) {
     NAMENODE_HA_RETRY_BEGIN();
-    return namenode->getEncryptionKeys();
-    NAMENODE_HA_RETRY_END();
-    return key;
-}
-void NamenodeProxy::create(const std::string & src, const Permission & masked,
-                           const std::string & clientName, int flag, bool createParent,
-                           short replication, int64_t blockSize) {
-    NAMENODE_HA_RETRY_BEGIN();
-    namenode->create(src, masked, clientName, flag, createParent, replication, blockSize);
+    return namenode->create(src, masked, clientName, flag, createParent, replication, blockSize);
     NAMENODE_HA_RETRY_END();
 }
 
 std::pair<shared_ptr<LocatedBlock>, shared_ptr<FileStatus> >
-NamenodeProxy::append(const std::string& src, const std::string& clientName) {
+NamenodeProxy::append(const std::string& src, const std::string& clientName, const uint32_t& flag) {
     NAMENODE_HA_RETRY_BEGIN();
-    return namenode->append(src, clientName);
+    return namenode->append(src, clientName, flag);
     NAMENODE_HA_RETRY_END();
     assert(!"should not reach here");
     return std::pair<shared_ptr<LocatedBlock>, shared_ptr<FileStatus> >();
@@ -292,18 +285,18 @@ void NamenodeProxy::setOwner(const std::string & src,
     NAMENODE_HA_RETRY_END();
 }
 
-void NamenodeProxy::abandonBlock(const ExtendedBlock & b,
-                                 const std::string & src, const std::string & holder) {
+void NamenodeProxy::abandonBlock(const ExtendedBlock & b, const std::string & src,
+                                 const std::string & holder, int64_t fileId) {
     NAMENODE_HA_RETRY_BEGIN();
-    namenode->abandonBlock(b, src, holder);
+    namenode->abandonBlock(b, src, holder, fileId);
     NAMENODE_HA_RETRY_END();
 }
 
 shared_ptr<LocatedBlock> NamenodeProxy::addBlock(const std::string & src,
         const std::string & clientName, const ExtendedBlock * previous,
-        const std::vector<DatanodeInfo> & excludeNodes) {
+        const std::vector<DatanodeInfo> & excludeNodes, int64_t fileId) {
     NAMENODE_HA_RETRY_BEGIN();
-    return namenode->addBlock(src, clientName, previous, excludeNodes);
+    return namenode->addBlock(src, clientName, previous, excludeNodes, fileId);
     NAMENODE_HA_RETRY_END();
     assert(!"should not reach here");
     return shared_ptr<LocatedBlock>();
@@ -324,9 +317,9 @@ shared_ptr<LocatedBlock> NamenodeProxy::getAdditionalDatanode(
 }
 
 bool NamenodeProxy::complete(const std::string & src,
-                             const std::string & clientName, const ExtendedBlock * last) {
+                             const std::string & clientName, const ExtendedBlock * last, int64_t fileId) {
     NAMENODE_HA_RETRY_BEGIN();
-    return namenode->complete(src, clientName, last);
+    return namenode->complete(src, clientName, last, fileId);
     NAMENODE_HA_RETRY_END();
     assert(!"should not reach here");
     return false;
@@ -357,11 +350,9 @@ void NamenodeProxy::concat(const std::string & trg,
 
 bool NamenodeProxy::truncate(const std::string & src, int64_t size,
                              const std::string & clientName) {
-    bool ret = false;
     NAMENODE_HA_RETRY_BEGIN();
     return namenode->truncate(src, size, clientName);
     NAMENODE_HA_RETRY_END();
-    return ret;
 }
 
 void NamenodeProxy::getLease(const std::string & src,

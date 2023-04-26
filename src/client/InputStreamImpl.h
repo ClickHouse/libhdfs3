@@ -57,6 +57,7 @@ namespace Internal {
 class InputStreamImpl: public InputStreamInter {
 public:
     InputStreamImpl();
+    explicit InputStreamImpl(shared_ptr<LocatedBlocks> lbs); 
     ~InputStreamImpl();
 
     /**
@@ -108,7 +109,7 @@ public:
      */
     std::string toString();
 
-private:
+protected:
     bool choseBestNode();
     bool isLocalNode();
     int32_t readInternal(char * buf, int32_t size);
@@ -123,8 +124,9 @@ private:
     void seekToBlock(const LocatedBlock & lb);
     void setupBlockReader(bool temporaryDisableLocalRead);
     void updateBlockInfos();
+    void updateBlockInfos(bool need);
 
-private:
+protected:
     bool closed;
     bool localRead;
     bool readFromUnderConstructedBlock;
@@ -153,6 +155,8 @@ private:
     Hdfs::Mock::TestDatanodeStub * stub;
 #endif
 };
+
+unordered_set<std::string> BuildLocalAddrSet();
 
 }
 }

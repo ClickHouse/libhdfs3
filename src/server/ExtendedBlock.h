@@ -31,6 +31,7 @@
 #include "Hash.h"
 #include <string>
 #include <sstream>
+#define INVALID_POOL_ID "bp_invalid_id"
 
 namespace Hdfs {
 namespace Internal {
@@ -41,7 +42,7 @@ namespace Internal {
 class ExtendedBlock {
 public:
     ExtendedBlock() :
-        blockId(0), generationStamp(0), numBytes(0) {
+        blockId(0), generationStamp(0), numBytes(0), poolId(INVALID_POOL_ID) {
     }
 
     int64_t getBlockId() const {

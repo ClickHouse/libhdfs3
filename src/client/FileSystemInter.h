@@ -43,8 +43,6 @@
 #include "Unordered.h"
 #include "UserInfo.h"
 #include "XmlConfig.h"
-#include "server/EncryptionKey.h"
-
 
 namespace Hdfs {
 
@@ -95,8 +93,6 @@ public:
      * disconnect from hdfs
      */
     virtual void disconnect() = 0;
-
-    virtual EncryptionKey getEncryptionKeys() = 0;
 
     /**
      * To get default number of replication.
@@ -318,18 +314,19 @@ public:
      * @param replication block replication factor.
      * @param blockSize maximum block size.
      */
-    virtual void create(const std::string & src, const Permission & masked,
-                        int flag, bool createParent, short replication,
-                        int64_t blockSize) = 0;
+    virtual FileStatus create(const std::string & src, const Permission & masked,
+                              int flag, bool createParent, short replication,
+                              int64_t blockSize) = 0;
 
     /**
      * Append to the end of the file.
      *
      * @param src path of the file being created.
-     * @return return the last partial block if any
+     * @param flag create flag.
+     * @return return a pair of the last partial block and file status if any
      */
     virtual std::pair<shared_ptr<LocatedBlock>, shared_ptr<FileStatus> > append(
-        const std::string& src) = 0;
+        const std::string & src, const uint32_t & flag) = 0;
 
     /**
      * The client can give up on a block by calling abandonBlock().
@@ -338,9 +335,11 @@ public:
      *
      * @param b the block to be abandoned.
      * @param src the file which the block belongs to.
+     * @param fileId the inode id of the file.
      */
     virtual void abandonBlock(const ExtendedBlock & b,
-                              const std::string & srcr) = 0;
+                              const std::string & srcr,
+                              int64_t fileId) = 0;
 
     /**
      * A client that wants to write an additional block to the
@@ -357,11 +356,13 @@ public:
      * @param src the file being created
      * @param previous  previous block
      * @param excludeNodes a list of nodes that should not be allocated for the current block.
+     * @param fileId the inode id of the file.
      * @return return the new block.
      */
     virtual shared_ptr<LocatedBlock> addBlock(const std::string & src,
             const ExtendedBlock * previous,
-            const std::vector<DatanodeInfo> & excludeNodes) = 0;
+            const std::vector<DatanodeInfo> & excludeNodes,
+            int64_t fileId) = 0;
 
     /**
      * Get a datanode for an existing pipeline.
@@ -401,7 +402,7 @@ public:
      * @return return false if the client should retry.
      */
     virtual bool complete(const std::string & src,
-                          const ExtendedBlock * last) = 0;
+                          const ExtendedBlock * last, int64_t fileId) = 0;
 
     /**
      * The client wants to report corrupted blocks (blocks with specified
@@ -458,7 +459,7 @@ public:
      * Get the configuration used in filesystem.
      * @return return the configuration instance.
      */
-    virtual SessionConfig & getConf() = 0;
+    virtual const SessionConfig & getConf() const = 0;
 
     /**
      * Get the user used in filesystem.
