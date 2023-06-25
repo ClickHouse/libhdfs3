@@ -50,13 +50,14 @@ public:
     public:
 	    VerticalRange() :offsetInBlock(0), spanInBlock(0) {}
         VerticalRange(long offset, long length) {
+            offsetInBlock = offset;
+            spanInBlock = length;
+
             std::stringstream ss;
             ss << "offsetInBlock=" + std::to_string(offset)
                << " length=" + std::to_string(length)
                << " must be non-negative.";
             Preconditions::checkArgument(offset >= 0 && length >= 0, ss.str());
-            offsetInBlock = offset;
-            spanInBlock = length;
         }
 
 	    void setOffsetInBlock(long offset) {
@@ -126,13 +127,14 @@ public:
 
     public:
         StripeRange(long offsetInBlock_, long length_) {
+            offsetInBlock = offsetInBlock_;
+            length = length_;
+
             std::stringstream ss;
             ss << "offsetInBlock=" + std::to_string(offsetInBlock)
                 << " length=" + std::to_string(length)
                 << " must be non-negative.";
             Preconditions::checkArgument(offsetInBlock >= 0 && length >= 0, ss.str());
-            offsetInBlock = offsetInBlock_;
-            length = length_;
         }
 
         bool include(long pos) {
@@ -252,7 +254,7 @@ public:
                 if (chunks[i] != nullptr) {
                     delete chunks[i];
                     chunks[i] = nullptr;
-                }    
+                }
             }
 
             if (range != nullptr) {
@@ -381,11 +383,12 @@ public:
 
     public:
         StripingChunkReadResult(int state_) {
-            Preconditions::checkArgument(state == TIMEOUT,
-                "Only timeout result should return negative index.");
             index = -1;
             state = state_;
             readStats = nullptr;
+
+            Preconditions::checkArgument(state == TIMEOUT,
+                "Only timeout result should return negative index.");
         }
 
         StripingChunkReadResult(int index, int state) {
@@ -393,11 +396,12 @@ public:
         }
 
         StripingChunkReadResult(int index_, int state_, BlockReadStats * stats_) {
-            Preconditions::checkArgument(state != TIMEOUT,
-                "Timeout result should return negative index.");
             index = index_;
             state = state_;
             readStats = stats_;
+
+            Preconditions::checkArgument(state != TIMEOUT,
+                "Timeout result should return negative index.");
         }
 
         BlockReadStats * getReadStats() const {
@@ -439,7 +443,7 @@ public:
     static long offsetInBlkToOffsetInBG(int cellSize, int dataBlkNum,
         long offsetInBlk, int idxInBlockGroup);
 
-    static void parseStripedBlockGroup(LocatedBlock & bg, int32_t cellSize, 
+    static void parseStripedBlockGroup(LocatedBlock & bg, int32_t cellSize,
         int32_t dataBlkNum, int32_t parityBlkNum, std::vector<LocatedBlock> & lbs);
 
 private:
@@ -466,14 +470,14 @@ private:
     }
 
     static void mergeRangesForInternalBlocks(shared_ptr<ECPolicy> ecPolicy,
-        std::vector<VerticalRange> & ranges, LocatedBlock & blockGroup, 
+        std::vector<VerticalRange> & ranges, LocatedBlock & blockGroup,
         int cellSize, std::vector<AlignedStripe*> & stripes);
 
     static void prepareAllZeroChunks(LocatedBlock & blockGroup,
         std::vector<AlignedStripe*> & stripes, int cellSize, int dataBlkNum);
-    
+
 };
-        
+
 }
 }
 
