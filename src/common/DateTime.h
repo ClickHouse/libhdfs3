@@ -73,6 +73,12 @@ static int64_t ToMilliSeconds(TimeStamp const & s, TimeStamp const & e) {
     return duration_cast<milliseconds>(e - s).count();
 }
 
+template<typename Timestamp>
+static int64_t ToMicroSeconds(Timestamp const & s, Timestamp const & e) {
+    assert(e >= s);
+    return duration_cast<microseconds>(e - s).count();
+}
+
 }
 }
 

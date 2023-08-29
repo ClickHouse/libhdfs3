@@ -215,7 +215,15 @@ int64_t InputStreamImpl::readBlockLength(const LocatedBlock & b) {
  * Getting blocks locations'information from namenode
  */
 void InputStreamImpl::updateBlockInfos() {
+    steady_clock::time_point s = steady_clock::now();
     updateBlockInfos(true);
+    steady_clock::time_point e = steady_clock::now();
+    int64_t cost = ToMicroSeconds(s, e);
+    if (cost > filesystem->getConf().getSlowReadThresholdUs()) {
+        LOG(WARNING, "updateBlockInfos for file %s cost %" PRId64 "ms",
+            path.c_str(), cost / 1000);
+    }
+    LOG(DEBUG2, "updateBlockInfos for file %s cost %" PRId64 "us", path.c_str(), cost);
 }
 
 /**
@@ -470,10 +478,17 @@ int32_t InputStreamImpl::read(char * buf, int32_t size) {
     checkStatus();
 
     try {
+        steady_clock::time_point s = steady_clock::now();
         int64_t prvious = cursor;
         int32_t done = readInternal(buf, size);
-        LOG(DEBUG3, "%p read file %s size is %d, offset %" PRId64 " done %d, next pos %" PRId64, this, path.c_str(), size,
-            prvious, done, cursor);
+        steady_clock::time_point e = steady_clock::now();
+        int64_t cost = ToMicroSeconds(s, e);
+        if (cost > filesystem->getConf().getSlowReadThresholdUs()) {
+            LOG(WARNING, "read replica file %s cost %" PRId64 "ms , offset %" PRId64 " size %d done %d",
+                path.c_str(), cost / 1000, cursor, size, done);
+        }
+        LOG(DEBUG3, "%p read file %s size is %d, offset %" PRId64 " done %d, next pos %" PRId64 ", cost %" PRId64 "us",
+            this, path.c_str(), size, prvious, done, cursor, cost);
         return done;
     } catch (const HdfsEndOfStream & e) {
         throw;
@@ -673,11 +688,19 @@ int32_t InputStreamImpl::readInternal(char * buf, int32_t size) {
  * @param size the number of bytes to be read.
  */
 void InputStreamImpl::readFully(char * buf, int64_t size) {
-    LOG(DEBUG3, "readFully file %s size is %" PRId64 ", offset %" PRId64, path.c_str(), size, cursor);
     checkStatus();
 
     try {
-        return readFullyInternal(buf, size);
+        steady_clock::time_point s = steady_clock::now();
+        readFullyInternal(buf, size);
+        steady_clock::time_point e = steady_clock::now();
+        int64_t cost = ToMicroSeconds(s, e);
+        if (cost > filesystem->getConf().getSlowReadThresholdUs()) {
+            LOG(WARNING, "readFully replica file %s cost %" PRId64 "ms , offset %" PRId64 " size %" PRId64,
+                path.c_str(), cost / 1000, cursor, size);
+        }
+        LOG(DEBUG3, "readFully file %s size is %" PRId64 ", offset %" PRId64 ", cost %" PRId64 "us",
+            path.c_str(), size, cursor, cost);
     } catch (const HdfsEndOfStream & e) {
         throw;
     } catch (...) {
@@ -731,11 +754,19 @@ int64_t InputStreamImpl::available() {
  * @param size the given position.
  */
 void InputStreamImpl::seek(int64_t pos) {
-    LOG(DEBUG2, "%p seek file %s to %" PRId64 ", offset %" PRId64, this, path.c_str(), pos, cursor);
     checkStatus();
 
     try {
+        steady_clock::time_point s = steady_clock::now();
         seekInternal(pos);
+        steady_clock::time_point e = steady_clock::now();
+        int64_t cost = ToMicroSeconds(s, e);
+        if (cost > filesystem->getConf().getSlowReadThresholdUs()) {
+            LOG(WARNING, "seek replica file %s cost %" PRId64 "ms , from %" PRId64 " to %" PRId64,
+                path.c_str(), cost / 1000, cursor, pos);
+        }
+        LOG(DEBUG2, "%p seek file %s to %" PRId64 ", offset %" PRId64 ", cost %" PRId64 "us",
+            this, path.c_str(), pos, cursor, cost);
     } catch (...) {
         lastError = current_exception();
         throw;

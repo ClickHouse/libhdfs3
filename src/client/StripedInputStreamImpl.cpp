@@ -303,6 +303,7 @@ int32_t StripedInputStreamImpl::read(char * buf, int32_t size) {
     checkStatus();
     try {
         if (cursor < getFileLength()) {
+            steady_clock::time_point s = steady_clock::now();
             if (cursor > endOfCurBlock) {
                 closeCurrentBlockReaders();
                 setCurBlock();
@@ -314,6 +315,7 @@ int32_t StripedInputStreamImpl::read(char * buf, int32_t size) {
                     static_cast<int64_t>(lbs->getFileLength() - cursor)));
             }
 
+            int64_t previous = cursor;
             int result = 0;
             while (result < realLen) {
                 if (!curStripeRange->include(getOffsetInBlockGroup())) {
@@ -323,6 +325,14 @@ int32_t StripedInputStreamImpl::read(char * buf, int32_t size) {
                 result += ret;
                 cursor += ret;
             }
+            steady_clock::time_point e = steady_clock::now();
+            int64_t cost = ToMicroSeconds(s, e);
+            if (cost > filesystem->getConf().getSlowReadThresholdUs()) {
+                LOG(WARNING, "read file %s cost %" PRId64 "ms , offset %" PRId64 " size %d done %d",
+                    path.c_str(), cost / 1000, cursor, size, result);
+            }
+            LOG(DEBUG3, "%p read file %s size is %d, offset %" PRId64 " done %d, next pos %" PRId64 ", cost %" PRId64 "us",
+                this, path.c_str(), size, previous, result, cursor, cost);
             return result;
         }
         return 0;
@@ -353,6 +363,7 @@ void StripedInputStreamImpl::seekToBlock(const LocatedBlock & lb) {
 void StripedInputStreamImpl::seek(int64_t targetPos) {
     checkStatus();
 
+    steady_clock::time_point s = steady_clock::now();
     if (targetPos > getFileLength()) {
         THROW(HdfsEndOfStream,
             "StripedInputStreamImpl: seek over EOF, current position: %" PRId64 ", seek target: %" PRId64 ", in file: %s",
@@ -375,6 +386,14 @@ void StripedInputStreamImpl::seek(int64_t targetPos) {
 
     cursor = targetPos;
     endOfCurBlock = -1;
+    steady_clock::time_point e = steady_clock::now();
+    int64_t cost = ToMicroSeconds(s, e);
+    if (cost > filesystem->getConf().getSlowReadThresholdUs()) {
+        LOG(WARNING, "seek file %s cost %" PRId64 "ms , from %" PRId64 " to %" PRId64,
+            path.c_str(), cost / 1000, cursor, targetPos);
+    }
+    LOG(DEBUG2, "%p seek file %s to %" PRId64 ", offset %" PRId64 ", cost %" PRId64 "us",
+        this, path.c_str(), targetPos, cursor, cost);
 }
 
 void StripedInputStreamImpl::close() {

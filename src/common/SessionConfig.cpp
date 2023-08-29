@@ -134,6 +134,8 @@ SessionConfig::SessionConfig(const Config & conf) {
             &socketCacheCapacity, "dfs.client.socketcache.capacity", 16, bind(CheckRangeGE<int32_t>, _1, _2, 0)
         }, {
             &stripeReaderThreadPoolSize, "dfs.client.read.striped.thread-pool.size", 64
+        }, {
+            &slowReadThresholdMs, "dfs.client.slow.read.threshold.ms", 300
         }
     };
     ConfigDefault<int64_t> i64Values [] = {

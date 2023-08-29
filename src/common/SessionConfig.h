@@ -311,6 +311,10 @@ public:
         return stripeReaderThreadPoolSize;
     }
 
+    int32_t getSlowReadThresholdUs() const {
+        return slowReadThresholdMs * 1000;
+    }
+
 public:
     /*
      * rpc configure
@@ -356,6 +360,7 @@ public:
     int32_t socketCacheExpiry;
     std::string domainSocketPath;
     int32_t stripeReaderThreadPoolSize;
+    int32_t slowReadThresholdMs;
 
     /*
      * OutputStream configure
