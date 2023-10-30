@@ -93,7 +93,7 @@ bool HWCrc32c::available() {
 #endif
 }
 
-#if !((defined(__ppc__) || defined(__powerpc64__)) && (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__))
+#if !(((defined(__PPC64__) || defined(__powerpc64__)) && (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)) || (defined(__s390x__)))
 void HWCrc32c::update(const void * b, int len) {
     const char * p = static_cast<const char *>(b);
 #if defined(__LP64__)
