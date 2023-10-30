@@ -55,7 +55,7 @@ OutputStreamImpl::OutputStreamImpl() :
 #if defined(__SSE4_2__) && defined(__LP64__)
     checksum = std::make_shared<IntelAsmCrc32c>();
 #else
-#if !((defined(__PPC64__) || defined(__powerpc64__)) && (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)) && !defined(__s390x__)
+#if !(((defined(__PPC64__) || defined(__powerpc64__)) && (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)) || (defined(__s390x__)))
     if (HWCrc32c::available()) {
         checksum = shared_ptr < Checksum > (new HWCrc32c());
     } else
