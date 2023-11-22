@@ -155,7 +155,7 @@ private:
     int maxNamenodeHARetry;
     mutex mut;
     std::string clusterid;
-    std::vector<shared_ptr<Namenode> > namenodes;
+    std::vector<shared_ptr<Namenode>> namenodes;
     uint32_t currentNamenode;
 };
 

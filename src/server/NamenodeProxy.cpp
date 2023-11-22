@@ -33,119 +33,10 @@
 #include "StringUtil.h"
 
 #include <string>
-
-#include <sys/fcntl.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <sys/file.h>
+#include <random>
 
 namespace Hdfs {
 namespace Internal {
-
-static uint32_t GetInitNamenodeIndex(const std::string id) {
-    std::string path = "/tmp/";
-    path += id;
-    int fd;
-    uint32_t index = 0;
-    /*
-     * try create the file
-     */
-    fd = open(path.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0666);
-
-    if (fd < 0) {
-        if (errno == EEXIST) {
-            /*
-             * the file already exist, try to open it
-             */
-            fd = open(path.c_str(), O_RDONLY);
-        } else {
-            /*
-             * failed to create, do not care why
-             */
-            return 0;
-        }
-    } else {
-        if (0 != flock(fd, LOCK_EX)) {
-            /*
-             * failed to lock
-             */
-            close(fd);
-            return index;
-        }
-
-        /*
-         * created file, initialize it with 0
-         */
-        if (write(fd, &index, sizeof(index)) < 0) {
-          LOG(WARNING,
-              "NamenodeProxy: Failed to write current Namenode index into "
-              "cache file.");
-            /*
-             * ignore the failure.
-             */
-        }
-
-        flock(fd, LOCK_UN);
-        close(fd);
-        return index;
-    }
-
-    /*
-     * the file exist, read it.
-     */
-    if (fd >= 0) {
-        if (0 != flock(fd, LOCK_SH)) {
-            /*
-             * failed to lock
-             */
-            close(fd);
-            return index;
-        }
-
-        if (sizeof(index) != read(fd, &index, sizeof(index))) {
-            /*
-             * failed to read, do not care why
-             */
-            index = 0;
-        }
-
-        flock(fd, LOCK_UN);
-        close(fd);
-    }
-
-    return index;
-}
-
-static void SetInitNamenodeIndex(const std::string & id, uint32_t index) {
-    std::string path = "/tmp/";
-    path += id;
-    int fd;
-    /*
-     * try open the file for write
-     */
-    fd = open(path.c_str(), O_WRONLY);
-
-    if (fd > 0) {
-        if (0 != flock(fd, LOCK_EX)) {
-            /*
-             * failed to lock
-             */
-            close(fd);
-            return;
-        }
-
-        if (write(fd, &index, sizeof(index)) < 0) {
-            LOG(WARNING,
-                "NamenodeProxy: Failed to write current Namenode index into "
-                "cache file.");
-            /*
-             * ignore the failure.
-             */
-        }
-        flock(fd, LOCK_UN);
-        close(fd);
-    }
-}
 
 NamenodeProxy::NamenodeProxy(const std::vector<NamenodeInfo> & namenodeInfos, const std::string & tokenService,
                              const SessionConfig & c, const RpcAuth & a) :
@@ -171,9 +62,9 @@ NamenodeProxy::NamenodeProxy(const std::vector<NamenodeInfo> & namenodeInfos, co
                 new NamenodeImpl(nninfo[0].c_str(), nninfo[1].c_str(), clusterid, c, a)));
     }
 
-    if (enableNamenodeHA) {
-        currentNamenode = GetInitNamenodeIndex(clusterid) % namenodeInfos.size();
-    }
+    // shuffler
+    unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+    std::shuffle(namenodes.begin(), namenodes.end(), std::default_random_engine(seed));
 }
 
 NamenodeProxy::~NamenodeProxy() {
@@ -200,7 +91,6 @@ void NamenodeProxy::failoverToNextNamenode(uint32_t oldValue) {
 
     ++currentNamenode;
     currentNamenode = currentNamenode % namenodes.size();
-    SetInitNamenodeIndex(clusterid, currentNamenode);
 }
 
 static void HandleHdfsFailoverException(const HdfsFailoverException & e) {
@@ -227,15 +117,17 @@ static void HandleHdfsFailoverException(const HdfsFailoverException & e) {
     break; \
     } catch (const NameNodeStandbyException & e) { \
         if (!enableNamenodeHA || __count++ > maxNamenodeHARetry) { \
+            LOG(LOG_ERROR, "NamenodeProxy: Cannot failover to another NameNode, retry count is %d.", __count); \
             throw; \
         } \
     } catch (const HdfsFailoverException & e) { \
         if (!enableNamenodeHA || __count++ > maxNamenodeHARetry) { \
+            LOG(LOG_ERROR, "NamenodeProxy: Cannot failover to another NameNode, retry count is %d", __count);  \
             HandleHdfsFailoverException(e); \
         } \
     } \
     failoverToNextNamenode(__oldValue); \
-    LOG(WARNING, "NamenodeProxy: Failover to another Namenode."); \
+    LOG(WARNING, "NamenodeProxy: Failover to another Namenode, retry count is %d.", __count); \
     } while (true); \
     } while (0)
 
