@@ -43,6 +43,7 @@
 #include "server/NamenodeProxy.h"
 #include "StringUtil.h"
 
+#include <random>
 #include <cstring>
 #include <inttypes.h>
 #include <libxml/uri.h>
@@ -111,10 +112,9 @@ FileSystemImpl::FileSystemImpl(const FileSystemKey& key, const Config& c)
     std::stringstream ss;
     ss.imbue(std::locale::classic());
 
-    double rand;
-    static drand48_data buf;
-    srand48_r(time(NULL), &buf);
-    drand48_r(&buf, &rand);
+    std::minstd_rand rng((std::minstd_rand::result_type)time(nullptr)); /// a fast rng with bad quality is okay here
+    std::uniform_real_distribution<> distr(0.0, 1.0);
+    double rand = distr(rng);
 
     ss << "libhdfs3_client_rand_" + std::to_string(rand) + "_count_" << ++count << "_pid_"
        << getpid() << "_tid_" << pthread_self();
