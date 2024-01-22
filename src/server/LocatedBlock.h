@@ -45,11 +45,11 @@ namespace Internal {
 class LocatedBlock: public ExtendedBlock {
 public:
     LocatedBlock() :
-        offset(0), corrupt(false), striped(false) {
+        offset(0), corrupt(false), striped(false), lastBlock(false) {
     }
 
     LocatedBlock(int64_t position) :
-        offset(position), corrupt(false), striped(false) {
+        offset(position), corrupt(false), striped(false), lastBlock(false) {
     }
 
     bool isCorrupt() const {
@@ -124,12 +124,21 @@ public:
         return tokens;
     }
 
+    void setLastBlock(bool isLastBlock) {
+        lastBlock = isLastBlock;
+    }
+
+    bool isLastBlock() const {
+        return lastBlock;
+    }
+
 private:
     int64_t offset;
     bool corrupt;
     std::vector<DatanodeInfo> locs;
     std::vector<std::string> storageIDs;
     Token token;
+    bool lastBlock;
     // for ec block
     bool striped;
     std::vector<int8_t> indices;

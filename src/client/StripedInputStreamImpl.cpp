@@ -153,7 +153,7 @@ const DatanodeInfo * StripedInputStreamImpl::choseBestNode(LocatedBlock & lb) {
     const std::vector<DatanodeInfo> & nodes = lb.getLocations();
 
     for (size_t i = 0; i < nodes.size(); ++i) {
-        if (std::binary_search(failedNodes.begin(), failedNodes.end(), nodes[i])) {
+        if (failedNodes.binary_search(nodes[i])) {
             continue;
         }
 
@@ -230,7 +230,7 @@ bool StripedInputStreamImpl::createBlockReader(LocatedBlock & block,
                     block.toString().c_str(), path.c_str(),
                     node->formatAddress().c_str(), GetExceptionDetail(e, buffer));
                 failedNodes.push_back(*node);
-                std::sort(failedNodes.begin(), failedNodes.end());
+                failedNodes.sort();
             }
 
             continue;

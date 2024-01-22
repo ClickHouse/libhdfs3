@@ -38,11 +38,17 @@ namespace Hdfs {
 namespace Internal {
 
 const LocatedBlock * LocatedBlocksImpl::findBlock(int64_t position) {
+    int32_t targetBlockIdx = 0;
+    return findBlock(position, targetBlockIdx);
+}
+
+const LocatedBlock * LocatedBlocksImpl::findBlock(int64_t position, int32_t & targetBlockIdx) {
     if (position < fileLength) {
         LocatedBlock target(position);
         std::vector<LocatedBlock>::iterator bound;
 
         if (blocks.empty() || position < blocks.begin()->getOffset()) {
+            targetBlockIdx = 0;
             return NULL;
         }
 
@@ -55,6 +61,7 @@ const LocatedBlock * LocatedBlocksImpl::findBlock(int64_t position) {
         assert(bound == blocks.end() || bound->getOffset() >= position);
         LocatedBlock * retval = NULL;
 
+        targetBlockIdx = (int32_t)(bound - blocks.begin());
         if (bound == blocks.end()) {
             retval = &blocks.back();
         } else if (bound->getOffset() > position) {
@@ -72,7 +79,48 @@ const LocatedBlock * LocatedBlocksImpl::findBlock(int64_t position) {
 
         return retval;
     } else {
+        targetBlockIdx = (int32_t)blocks.size();
         return lastBlock.get();
+    }
+}
+
+void LocatedBlocksImpl::insertRange(int32_t blockIdx, std::vector<LocatedBlock> & newBlocks) {
+    int32_t oldIdx = blockIdx;
+    int32_t insStart = 0, insEnd = 0;
+    for(int32_t newIdx = 0; newIdx < newBlocks.size() && oldIdx < blocks.size(); newIdx++) {
+        int64_t newOff = newBlocks[newIdx].getOffset();
+        int64_t oldOff = blocks[oldIdx].getOffset();
+        if(newOff < oldOff) {
+            insEnd++;
+        } else if(newOff == oldOff) {
+            // replace old cached block by the new one
+            blocks[oldIdx] = newBlocks[newIdx];
+            if(insStart < insEnd) { // insert new blocks
+                addAll(blocks, oldIdx, newBlocks, insStart, insEnd);
+                oldIdx += insEnd - insStart;
+            }
+            insStart = insEnd = newIdx+1;
+            oldIdx++;
+        } else {  // newOff > oldOff
+            assert(false);
+        }
+    }
+    insEnd = (int32_t)newBlocks.size();
+    if(insStart < insEnd) { // insert new blocks
+        addAll(blocks, oldIdx, newBlocks, insStart, insEnd);
+    }
+}
+
+void LocatedBlocksImpl::addAll(std::vector<LocatedBlock> & oldBlocks, int32_t index, std::vector<LocatedBlock> & newBlocks,
+            int32_t start, int32_t end) {
+    int32_t oldSize = (int32_t)oldBlocks.size();
+    int32_t shiftSize = end - start;
+    oldBlocks.resize(oldSize + shiftSize);
+    for (int32_t i = oldSize - 1; i >= index; --i) {
+        oldBlocks[i + shiftSize] = oldBlocks[i];
+    }
+    for (int32_t i = 0; i < shiftSize; ++i) {
+        oldBlocks[index + i] = newBlocks[i];
     }
 }
 

@@ -374,6 +374,23 @@ tOffset hdfsTell(hdfsFS fs, hdfsFile file);
 tSize hdfsRead(hdfsFS fs, hdfsFile file, void * buffer, tSize length);
 
 /**
+ * hdfsRead - Positional read data from an open file.
+ * @param fs The configured filesystem handle.
+ * @param file The file handle.
+ * @param buffer The buffer to copy read bytes into.
+ * @param length The length of the buffer.
+ * @param position The position in the input stream to seek
+ * @return      On success, a positive number indicating how many bytes
+ *              were read.
+ *              On end-of-file, 0.
+ *              On error, -1.  Errno will be set to the error code.
+ *              Just like the POSIX read function, hdfsRead will return -1
+ *              and set errno to EINTR if data is temporarily unavailable,
+ *              but we are not yet at the end of the file.
+ */
+tSize hdfsPread(hdfsFS fs, hdfsFile file, void * buffer, tSize length, tOffset position);
+
+/**
  * hdfsWrite - Write data into an open file.
  * @param fs The configured filesystem handle.
  * @param file The file handle.

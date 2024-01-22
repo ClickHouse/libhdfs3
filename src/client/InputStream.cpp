@@ -78,6 +78,17 @@ int32_t InputStream::read(char * buf, int32_t size) {
 }
 
 /**
+ * To read data from hdfs.
+ * @param buf the buffer used to filled.
+ * @param size buffer size.
+ * @param position the position to seek.
+ * @return return the number of bytes filled in the buffer, it may less than size.
+ */
+int32_t InputStream::pread(char * buf, int32_t size, int64_t position) {
+    return impl->pread(buf, size, position);
+}
+
+/**
  * To read data from hdfs, block until get the given size of bytes.
  * @param buf the buffer used to filled.
  * @param size the number of bytes to be read.

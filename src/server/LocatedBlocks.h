@@ -59,11 +59,15 @@ public:
 
     virtual const LocatedBlock * findBlock(int64_t position) = 0;
 
+    virtual const LocatedBlock * findBlock(int64_t position, int32_t & targetBlockIdx) = 0;
+
     virtual std::vector<LocatedBlock> & getBlocks() = 0;
 
     virtual shared_ptr<ECPolicy> getEcPolicy() const = 0;
 
     virtual void setEcPolicy(shared_ptr<ECPolicy> ecPolicy) = 0;
+
+    virtual void insertRange(int32_t blockIdx, std::vector<LocatedBlock> & newBlocks) = 0;
 };
 
 /**
@@ -106,6 +110,8 @@ public:
 
     const LocatedBlock * findBlock(int64_t position);
 
+    const LocatedBlock * findBlock(int64_t position, int32_t & targetBlockIdx);
+
     std::vector<LocatedBlock> & getBlocks() {
         return blocks;
     }
@@ -117,6 +123,11 @@ public:
     void setEcPolicy(shared_ptr<ECPolicy> policy) {
         ecPolicy = policy;
     }
+
+    void insertRange(int32_t blockIdx, std::vector<LocatedBlock> & newBlocks);
+
+    void addAll(std::vector<LocatedBlock> & oldBlocks, int32_t index, std::vector<LocatedBlock> & newBlocks,
+                int32_t start, int32_t end);
 
 private:
     bool lastBlockComplete;
