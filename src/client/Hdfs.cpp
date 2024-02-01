@@ -842,6 +842,25 @@ tSize hdfsRead(hdfsFS fs, hdfsFile file, void * buffer, tSize length) {
     return -1;
 }
 
+tSize hdfsPread(hdfsFS fs, hdfsFile file, void * buffer, tSize length, tOffset position) {
+    PARAMETER_ASSERT(fs && file && buffer && length > 0 && position >= 0, -1, EINVAL);
+    PARAMETER_ASSERT(file->isInput(), -1, EINVAL);
+
+    try {
+        return file->getInputStream().pread(static_cast<char *>(buffer), length, position);
+    } catch (const Hdfs::HdfsEndOfStream & e) {
+        return 0;
+    } catch (const std::bad_alloc & e) {
+        SetErrorMessage("Out of memory");
+        errno = ENOMEM;
+    } catch (...) {
+        SetLastException(Hdfs::current_exception());
+        handleException(Hdfs::current_exception());
+    }
+
+    return -1;
+}
+
 tSize hdfsWrite(hdfsFS fs, hdfsFile file, const void * buffer, tSize length) {
     PARAMETER_ASSERT(fs && file && buffer && length > 0, -1, EINVAL);
     PARAMETER_ASSERT(!file->isInput(), -1, EINVAL);

@@ -601,3 +601,52 @@ TEST(TestThroughput, TestSeek) {
     printf("seek and read file time %lf ms\n", avgElapsed);
    
 }
+
+static void CheckFileContentByPread(hdfsFS dfs, hdfsFile rFile, std::string path, int64_t len, size_t offset) {
+    std::vector<char> buff(len);
+    size_t ret;
+    EXPECT_NO_THROW(ret = hdfsPread(dfs, rFile, &buff[0], len, offset));
+    EXPECT_TRUE(ret == len);
+    EXPECT_TRUE(CheckBuffer(&buff[0], len, offset));
+}
+
+static void NothrowCheckFileContentByPread(hdfsFS dfs, hdfsFile rFile, std::string path,
+                                           int64_t len, size_t offset) {
+    EXPECT_NO_THROW(CheckFileContentByPread(dfs, rFile, path, len, offset));
+}
+
+TEST(TestPread, TestPreadOneFileSameTime) {
+    setenv("LIBHDFS3_CONF", "function-test.xml", 1);
+    struct hdfsBuilder * bld = hdfsNewBuilder();
+    assert(bld != nullptr);
+    hdfsBuilderSetNameNode(bld, "default");
+    hdfsFS dfs = hdfsBuilderConnect(bld);
+    assert(dfs != nullptr);
+
+    int flag = O_WRONLY;
+    // read more than two blocks
+    int64_t readSize = 1 * 1024 * 1024 * 128 + 234;
+    int64_t writeSize = 1 * 1024 * 1024 * 1024 + 234;
+    std::string filename(BASE_DIR"testPreadOneFileSameTime");
+    std::vector<shared_ptr<thread> > threads;
+    WriteFile(dfs, filename, writeSize, flag);
+
+    int64_t position = 234;
+    hdfsFile rFile;
+    EXPECT_NO_THROW(rFile = hdfsOpenFile(dfs, filename.c_str(), O_RDONLY, 0, 0, 0));
+    EXPECT_TRUE(nullptr != rFile);
+    for (int i = 1; i <= 50; ++i) {
+        threads.push_back(
+                shared_ptr<thread>(
+                        new thread(NothrowCheckFileContentByPread, dfs, rFile, filename, readSize, position)));
+        position += 1 * 1024 * 1024 * 10;
+    }
+
+    for (size_t i = 0; i < threads.size(); ++i) {
+        threads[i]->join();
+    }
+
+    EXPECT_NO_THROW(hdfsCloseFile(dfs, rFile));
+    EXPECT_NO_THROW(hdfsDelete(dfs, filename.c_str(), true));
+    EXPECT_NO_THROW(hdfsDisconnect(dfs));
+}
