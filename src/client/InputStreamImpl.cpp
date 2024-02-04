@@ -909,7 +909,7 @@ std::vector<shared_ptr<LocatedBlock>> InputStreamImpl::getFinalizedBlockRange(in
 
 shared_ptr<LocatedBlock> InputStreamImpl::fetchBlockAt(int64_t offset, int64_t length, bool useCache) {
     lock_guard<std::recursive_mutex> lock(infoMutex);
-    int targetBlockIdx;
+    int32_t targetBlockIdx;
     const LocatedBlock * lb = lbs->findBlock(offset, targetBlockIdx);
     if (!lb) { // block is not cached
         useCache = false;
@@ -926,6 +926,11 @@ shared_ptr<LocatedBlock> InputStreamImpl::fetchBlockAt(int64_t offset, int64_t l
         }
         lbs->insertRange(targetBlockIdx, newBlocks->getBlocks());
         lb = lbs->findBlock(offset);
+        if (!lb) {
+            LOG(LOG_ERROR, "fetchBlockAt failed, offset:%" PRId64 ", length:%" PRId64 ", targetBlockIdx:%d", offset,
+                length, targetBlockIdx);
+            THROW(HdfsIOException, "After insertRange, could not find target position %" PRId64, offset);
+        }
     }
     shared_ptr<LocatedBlock> ret = shared_ptr<LocatedBlock>(new LocatedBlock);
     *ret = *lb;
@@ -953,7 +958,7 @@ void InputStreamImpl::fetchBlockByteRange(shared_ptr<LocatedBlock> curBlock, int
                 "InputStreamImpl: failed to read Block: %s file %s, \n%s.",
                 curBlock->toString().c_str(), path.c_str(), GetExceptionDetail(e, buffer));
             if (refetchToken > 0 && !curBlock->isLastBlock()) {
-                curBlock = fetchBlockAt(start, end - start + 1, false);
+                curBlock = fetchBlockAt(curBlock->getOffset(), end - start + 1, false);
                 refetchToken -= 1;
                 continue;
             }

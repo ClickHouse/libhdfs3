@@ -120,7 +120,7 @@ void LocatedBlocksImpl::addAll(std::vector<LocatedBlock> & oldBlocks, int32_t in
         oldBlocks[i + shiftSize] = oldBlocks[i];
     }
     for (int32_t i = 0; i < shiftSize; ++i) {
-        oldBlocks[index + i] = newBlocks[i];
+        oldBlocks[index + i] = newBlocks[start + i];
     }
 }
 
