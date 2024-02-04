@@ -32,6 +32,7 @@
 #include "server/DatanodeInfo.h"
 #include "server/ExtendedBlock.h"
 
+#include <cstdint>
 #include <vector>
 
 namespace Hdfs {

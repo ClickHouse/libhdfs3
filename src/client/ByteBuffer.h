@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <string>
 #include <iostream>
+#include <cstdint>
 
 #include "Exception.h"
 #include "ExceptionInternal.h"
