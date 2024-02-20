@@ -111,11 +111,17 @@ if [[ ! -x ${cmake} ]]; then
     die "cannot found cmake"
 fi
 
+if [[ `arch` = loongarch64 ]];then
+     enable_sse="OFF"
+     enable_lsx="ON"
+fi
+
 # Configure
 ${cmake} -DENABLE_DEBUG=${enable_build} -DCMAKE_INSTALL_PREFIX=${prefix_dirs} \
     -DCMAKE_C_COMPILER=${c_compiler} -DCMAKE_CXX_COMPILER=${cxx_compiler} \
     -DCMAKE_PREFIX_PATH=${dependency_dir} -DENABLE_BOOST=${enable_boost} \
     -DENABLE_COVERAGE=${enable_coverage} -DENABLE_LIBCPP=${enable_clang_lib} ${source_dir} \
+    -DENABLE_SSE=${enable_sse} -DENABLE_LSX=${enable_lsx} \
     || die "failed to configure the project"
 
 echo 'bootstrap success. Run "make" to build.'

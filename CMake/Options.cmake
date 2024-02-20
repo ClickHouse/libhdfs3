@@ -1,6 +1,7 @@
 OPTION(ENABLE_COVERAGE "enable code coverage" OFF)
 OPTION(ENABLE_DEBUG "enable debug build" OFF)
 OPTION(ENABLE_SSE "enable SSE4.2 buildin function" ON)
+OPTION(ENABLE_LSX "enable Loongson LSX buildin function" OFF)
 OPTION(ENABLE_FRAME_POINTER "enable frame pointer on 64bit system with flag -fno-omit-frame-pointer, on 32bit system, it is always enabled" ON)
 OPTION(ENABLE_LIBCPP "using libc++ instead of libstdc++, only valid for clang compiler" OFF)
 OPTION(ENABLE_BOOST "using boost instead of native compiler c++0x support" OFF)
@@ -32,7 +33,11 @@ ENDIF(ENABLE_FRAME_POINTER STREQUAL ON)
 
 IF(ENABLE_SSE STREQUAL ON)
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4.2")
-ENDIF(ENABLE_SSE STREQUAL ON) 
+ENDIF(ENABLE_SSE STREQUAL ON)
+
+IF(ENABLE_LSX STREQUAL ON)
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mlsx")
+ENDIF(ENABLE_LSX STREQUAL ON) 
 
 IF(NOT TEST_HDFS_PREFIX)
 SET(TEST_HDFS_PREFIX "./" CACHE STRING "default directory prefix used for test." FORCE)
