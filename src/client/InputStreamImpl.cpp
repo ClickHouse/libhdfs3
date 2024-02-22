@@ -715,7 +715,6 @@ int32_t InputStreamImpl::readOneBlock(char * buf, int32_t size, bool shouldUpdat
  */
 int32_t InputStreamImpl::readInternal(char * buf, int32_t size) {
     int updateMetadataOnFailure = conf->getMaxReadBlockRetry();
-    bool isInfoMutexLock = false;
 
     try {
         do {
@@ -731,20 +730,16 @@ int32_t InputStreamImpl::readInternal(char * buf, int32_t size) {
                  * Do RPC failover work in updateBlockInfos.
                  */
                 updateBlockInfos();
-                if (isInfoMutexLock) {
-                    isInfoMutexLock = false;
-                    infoMutex.unlock();
-                }
+            }
 
-                /*
-                 * We already have the up-to-date block information,
-                 * Check if we reach the end of file.
-                 */
-                if (cursor >= getFileLength()) {
-                    THROW_NO_STACK(HdfsEndOfStream,
-                          "InputStreamImpl: read over EOF, current position: %" PRId64 ", read size: %d, from file: %s",
-                          cursor, size, path.c_str());
-                }
+            /*
+             * We already have the up-to-date block information,
+             * Check if we reach the end of file.
+             */
+            if (cursor >= getFileLength()) {
+                THROW_NO_STACK(HdfsEndOfStream,
+                      "InputStreamImpl: read over EOF, current position: %" PRId64 ", read size: %d, from file: %s",
+                      cursor, size, path.c_str());
             }
 
             /*
@@ -774,9 +769,15 @@ int32_t InputStreamImpl::readInternal(char * buf, int32_t size) {
              * We will update metadata once and try again.
              */
             if (retval < 0) {
-                infoMutex.lock();
-                isInfoMutexLock = true;
-                lbs.reset();
+                {
+                    lock_guard<std::recursive_mutex> lock(infoMutex);
+                    lbs.reset();
+                    /*
+                     * update block infos right now after lbs is reset
+                     * to ensure pread can read non-empty lbs.
+                     */
+                    updateBlockInfos();
+                }
                 endOfCurBlock = 0;
                 --updateMetadataOnFailure;
 
@@ -788,26 +789,13 @@ int32_t InputStreamImpl::readInternal(char * buf, int32_t size) {
                 continue;
             }
 
-            if (isInfoMutexLock) {
-                isInfoMutexLock = false;
-                infoMutex.unlock();
-            }
             return retval;
         } while (true);
     } catch (const HdfsCanceled & e) {
-        if (isInfoMutexLock) {
-            infoMutex.unlock();
-        }
         throw;
     } catch (const HdfsEndOfStream & e) {
-        if (isInfoMutexLock) {
-            infoMutex.unlock();
-        }
         throw;
     } catch (const HdfsException & e) {
-        if (isInfoMutexLock) {
-            infoMutex.unlock();
-        }
         /*
          * wrap the underlying error and rethrow.
          */
@@ -827,25 +815,22 @@ int32_t InputStreamImpl::readInternal(char * buf, int32_t size) {
 int32_t InputStreamImpl::preadInternal(char * buf, int32_t size, int64_t position) {
     int64_t cursor = position;
     try {
-        infoMutex.lock();
-        if (!lbs) {
-            THROW(HdfsIOException, "InputStreamImpl: lbs is empty, cannot pread file: %s, from position %" PRId64 ", size: %d.",
-                  path.c_str(), cursor, size);
-        }
-        int64_t filelen = getFileLength();
-        if ((position < 0) || (position >= filelen)) {
-            infoMutex.unlock();
-            return -1;
-        }
         int32_t realLen = size;
-        if ((position + size) > filelen) {
-            realLen = (int32_t)(filelen - position);
-        }
+        std::vector<shared_ptr<LocatedBlock>> blockRange;
+        {
+            lock_guard<std::recursive_mutex> lock(infoMutex);
+            int64_t filelen = getFileLength();
+            if ((position < 0) || (position >= filelen)) {
+                return -1;
+            }
+            if ((position + size) > filelen) {
+                realLen = (int32_t) (filelen - position);
+            }
 
-        // determine the block and byte range within the block
-        // corresponding to position and realLen
-        std::vector<shared_ptr<LocatedBlock>> blockRange = getBlockRange(position, (int64_t)realLen);
-        infoMutex.unlock();
+            // determine the block and byte range within the block
+            // corresponding to position and realLen
+            blockRange = getBlockRange(position, (int64_t) realLen);
+        }
         int32_t remaining = realLen;
         int32_t bytesHasRead = 0;
         for (shared_ptr<LocatedBlock> blk : blockRange) {
@@ -1213,9 +1198,10 @@ void InputStreamImpl::close() {
     prefetchSize = 0;
     blockReader.reset();
     curBlock.reset();
-    infoMutex.lock();
-    lbs.reset();
-    infoMutex.unlock();
+    {
+        lock_guard<std::recursive_mutex> lock(infoMutex);
+        lbs.reset();
+    }
     conf.reset();
     failedNodes.clear();
     path.clear();
