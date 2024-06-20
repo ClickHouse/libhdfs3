@@ -30,6 +30,7 @@
 
 #include "Hash.h"
 
+#include <cstdint>
 #include <string>
 #include <sstream>
 

@@ -5,6 +5,7 @@
 #ifndef _HDFS_LIBHDFS3_CLIENT_BYTEBUFFER_H_
 #define _HDFS_LIBHDFS3_CLIENT_BYTEBUFFER_H_
 
+#include <cstdint>
 #include <cstdlib>
 #include <string>
 #include <iostream>

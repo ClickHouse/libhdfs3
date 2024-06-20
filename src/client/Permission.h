@@ -28,6 +28,7 @@
 #ifndef _HDFS_LIBHDFS3_CLIENT_PERMISSION_H_
 #define _HDFS_LIBHDFS3_CLIENT_PERMISSION_H_
 
+#include <cstdint>
 #include <string>
 
 namespace Hdfs {

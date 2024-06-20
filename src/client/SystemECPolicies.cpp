@@ -20,6 +20,8 @@
  * limitations under the License.
  */
 
+#include <mutex>
+
 #include "Logger.h"
 #include "SystemECPolicies.h"
 
