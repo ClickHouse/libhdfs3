@@ -28,6 +28,7 @@
 #ifndef _HDFS_LIBHDFS3_SERVER_DATANODEINFO_H_
 #define _HDFS_LIBHDFS3_SERVER_DATANODEINFO_H_
 
+#include <cstdint>
 #include <string>
 #include <sstream>
 
