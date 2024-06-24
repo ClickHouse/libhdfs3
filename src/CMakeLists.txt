@@ -32,6 +32,18 @@ SET(libhdfs3_PROTO_FILES ${libhdfs3_PROTO_FILES} PARENT_SCOPE)
 
 PROTOBUF_GENERATE_CPP(libhdfs3_PROTO_SOURCES libhdfs3_PROTO_HEADERS ${libhdfs3_PROTO_FILES})
 
+IF(CMAKE_SYSTEM_PROCESSOR MATCHES "amd64|x86_64")
+    FIND_PROGRAM(YASM_PATH NAMES yasm)
+    IF(NOT YASM_PATH)
+        message(FATAL_ERROR "Please install the Yasm assembler")
+    ENDIF()
+    EXECUTE_PROCESS(COMMAND ${YASM_PATH} -f x64 -f elf64 -X gnu -g dwarf2 -D LINUX -o "${CMAKE_CURRENT_BINARY_DIR}/crc_iscsi_v_pcl.o" "${CMAKE_CURRENT_SOURCE_DIR}/common/crc_iscsi_v_pcl.asm" RESULT_VARIABLE YASM_RETVAL)
+    IF(NOT ${YASM_RETVAL} EQUAL 0)
+        message(FATAL_ERROR "The 'Yasm assembler' binary returned an error (${YASM_RETVAL})")
+    ENDIF()
+    LIST(APPEND libhdfs3_SOURCES "${CMAKE_CURRENT_BINARY_DIR}/crc_iscsi_v_pcl.o")
+ENDIF()
+
 SET(HEADER
     client/BlockLocation.h
     client/DirectoryIterator.h
