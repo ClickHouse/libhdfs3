@@ -64,7 +64,7 @@ static inline uint32_t _mm_crc32_u16(uint32_t crc, uint16_t value) {
     return crc;
 }
 
-static inline uint32_t _mm_crc32_u32(uint32_t crc, uint64_t value) {
+static inline uint32_t _mm_crc32_u32(uint32_t crc, uint32_t value) {
 #if defined(__loongarch64)
     crc = __crcc_w_w_w(value,crc);
 #else
