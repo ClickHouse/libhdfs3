@@ -66,6 +66,7 @@ build_type="Release"
 enable_boost="OFF"
 enable_coverage="OFF"
 enable_clang_lib="OFF"
+enable_sse="ON"
 while test $# != 0; do
     case "$1" in
     --prefix=*) dir=`arg "$1"`
