@@ -904,7 +904,7 @@ std::vector<shared_ptr<LocatedBlock>> InputStreamImpl::getBlockRange(int64_t off
  */
 std::vector<shared_ptr<LocatedBlock>> InputStreamImpl::getFinalizedBlockRange(int64_t offset, int64_t length) {
     lock_guard<std::recursive_mutex> lock(infoMutex);
-    assert(!lbs);
+    assert(lbs);
     std::vector<shared_ptr<LocatedBlock>> blockRange;
     // search cached blocks first
     int64_t remaining = length;
