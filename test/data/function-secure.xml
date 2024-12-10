@@ -39,5 +39,10 @@
 		<name>dfs.namenode.http-address.gphd-cluster.nn2</name>
 		<value>mdw:50070</value>
 	</property>
+
+	<property>
+		<name>dfs.client.use.datanode.hostname</name>
+		<value>true</value>
+	</property>
 	
 </configuration>
