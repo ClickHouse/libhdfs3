@@ -28,7 +28,7 @@
 #ifndef _HDFS_LIBHDFS3_COMMON_INTELASMCRC32C_H_
 #define _HDFS_LIBHDFS3_COMMON_INTELASMCRC32C_H_
 
-#if defined(__SSE4_2__) && defined(__LP64__)
+#if defined(__SSE4_2__) && defined(__LP64__) &&!defined(__APPLE__)
 
 #include "Checksum.h"
 

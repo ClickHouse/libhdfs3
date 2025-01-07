@@ -34,7 +34,7 @@ static inline void benchmark(const std::shared_ptr<Checksum> & checksum, const v
 int main()
 {
     std::map<std::string, std::shared_ptr<Checksum>> checksums = {
-#if defined(__SSE4_2__) && defined(__LP64__)
+#if defined(__SSE4_2__) && defined(__LP64__) &&!defined(__APPLE__)
         {"HWCrc32c", std::make_shared<HWCrc32c>()},
         {"IntelAsmCrc32c", std::make_shared<IntelAsmCrc32c>()},
 #endif
