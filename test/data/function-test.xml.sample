@@ -104,4 +104,10 @@
 		<name>test.get.confint32</name>
 		<value>10</value>
 	</property>
+
+	<property>
+		<name>dfs.client.use.datanode.hostname</name>
+		<value>true</value>
+	</property>
+	
 </configuration>

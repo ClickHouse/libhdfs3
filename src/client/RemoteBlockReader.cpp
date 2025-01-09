@@ -66,7 +66,7 @@ RemoteBlockReader::RemoteBlockReader(const ExtendedBlock& eb,
     readTimeout = conf.getInputReadTimeout();
     writeTimeout = conf.getInputWriteTimeout();
     connTimeout = conf.getInputConnTimeout();
-    sock = getNextPeer(datanode);
+    sock = getNextPeer(datanode, conf.connectViaHostname());
     in = shared_ptr<BufferedSocketReader>(new BufferedSocketReaderImpl(*sock));
     sender = shared_ptr<DataTransferProtocol>(new DataTransferProtocolSender(
         *sock, writeTimeout, datanode.formatAddress()));
@@ -82,14 +82,21 @@ RemoteBlockReader::~RemoteBlockReader() {
     }
 }
 
-shared_ptr<Socket> RemoteBlockReader::getNextPeer(const DatanodeInfo& dn) {
+shared_ptr<Socket> RemoteBlockReader::getNextPeer(const DatanodeInfo& dn, const bool connectToDnViaHostname) {
     shared_ptr<Socket> sock;
     try {
         sock = peerCache.getConnection(dn);
 
         if (!sock) {
             sock = shared_ptr<Socket>(new TcpSocketImpl);
-            sock->connect(dn.getIpAddr().c_str(), dn.getXferPort(),
+            
+            std::string host;
+            if(connectToDnViaHostname) {
+                host = dn.getHostName();
+            } else {
+                host = dn.getIpAddr();
+            }
+            sock->connect(host.c_str(), dn.getXferPort(),
                           connTimeout);
             sock->setNoDelay(true);
         }
