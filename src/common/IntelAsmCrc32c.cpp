@@ -29,7 +29,7 @@
 #include <cstdlib>
 #include "IntelAsmCrc32c.h"
 
-#if defined(__SSE4_2__) && defined(__LP64__)
+#if defined(__SSE4_2__) && defined(__LP64__) && !defined(__APPLE__)
 
 extern "C" unsigned int crc_pcl ( unsigned char * buffer, int len, unsigned int crc_init );
 
