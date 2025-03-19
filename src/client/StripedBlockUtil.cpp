@@ -93,6 +93,7 @@ void StripedBlockUtil::divideOneStripe(shared_ptr<ECPolicy> ecPolicy,
       StripingCell & cell = cells[i];
       long cellStart = cell.idxInInternalBlk * cellSize + cell.offset;
       long cellEnd = cellStart + cell.size - 1;
+      StripingChunk * chunk;
       for (int j = 0; j < static_cast<int>(stripes.size()); j++) {
         AlignedStripe * s = stripes[j];
         long stripeEnd = s->getOffsetInBlock() + s->getSpanInBlock() - 1;
@@ -100,11 +101,13 @@ void StripedBlockUtil::divideOneStripe(shared_ptr<ECPolicy> ecPolicy,
         long overlapEnd = std::min(cellEnd, stripeEnd);
         int overLapLen = static_cast<int>(overlapEnd - overlapStart + 1);
         if (overLapLen > 0) {
-            Preconditions::checkState(s->chunks[cell.idxInStripe] == nullptr);
+            chunk = s->chunks[cell.idxInStripe];
+            if (chunk == nullptr) {
+                chunk = new StripingChunk();
+                s->chunks[cell.idxInStripe] = chunk;
+            }
             int pos = static_cast<int>(bufOffset + overlapStart - cellStart);
-            buf->position(pos);
-            buf->limit(pos + overLapLen);
-            s->chunks[cell.idxInStripe] = new StripingChunk(shared_ptr<ByteBuffer>(buf->slice()));
+            chunk->getChunkBuffer()->addSlice(buf, pos, overLapLen);
         }
       }
       bufOffset += cell.size;

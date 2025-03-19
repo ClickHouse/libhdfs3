@@ -128,7 +128,7 @@ protected:
     std::vector<shared_ptr<LocatedBlock>> getBlockRange(int64_t offset, int64_t length);
     std::vector<shared_ptr<LocatedBlock>> getFinalizedBlockRange(int64_t offset, int64_t length);
     shared_ptr<LocatedBlock> fetchBlockAt(int64_t offset, int64_t length, bool useCache);
-    void fetchBlockByteRange(shared_ptr<LocatedBlock> curBlock, int64_t start, int64_t end, char * buf);
+    virtual void fetchBlockByteRange(shared_ptr<LocatedBlock> curBlock, int64_t start, int64_t end, char * buf);
     void setupBlockReader(bool temporaryDisableLocalRead, shared_ptr<BlockReader> & blockReader,
                           shared_ptr<LocatedBlock> curBlock, int64_t start, int64_t end,
                           DatanodeInfo & curNode);
@@ -146,6 +146,15 @@ protected:
     void setupBlockReader(bool temporaryDisableLocalRead);
     void updateBlockInfos();
     void updateBlockInfos(bool need);
+
+    /**
+     * Get block at the specified position.
+     * Fetch it from the namenode if not cached.
+     *
+     * @param offset block corresponding to this offset in file is returned
+     * @return located block
+     */
+    shared_ptr<LocatedBlock> getBlockAt(int64_t offset);
 
 protected:
     bool closed;

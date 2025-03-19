@@ -81,27 +81,34 @@ public:
     };
 
     class ChunkByteBuffer {
-        std::vector<ByteBuffer> slices;
+        std::vector<ByteBuffer*> slices;
 
 	public:
         ChunkByteBuffer() {
         }
 
-        ByteBuffer getSlice(int i) const {
+        ByteBuffer* getSlice(int i) const {
             return slices[i];
         }
 
-        std::vector<ByteBuffer> getSlices() const {
+        std::vector<ByteBuffer*> getSlices() const {
             return slices;
+        }
+
+        void addSlice(ByteBuffer* buffer, int offset, int len) {
+            ByteBuffer* tmp = buffer->duplicate();
+            tmp->position(buffer->position() + offset);
+            tmp->limit(buffer->position() + offset + len);
+            slices.push_back(tmp->slice());
         }
 
         /**
          *  Note: target will be ready-to-read state after the call.
          */
         void copyTo(ByteBuffer* target) {
-            for (ByteBuffer slice : slices) {
-                slice.flip();
-                target->put(&slice);
+            for (ByteBuffer* slice : slices) {
+                slice->flip();
+                target->put(slice);
             }
             target->clear();
         }
@@ -109,11 +116,11 @@ public:
         void copyFrom(ByteBuffer * src) {
             ByteBuffer * tmp;
             int len;
-            for (ByteBuffer slice : slices) {
-                len = slice.remaining();
+            for (ByteBuffer* slice : slices) {
+                len = slice->remaining();
                 tmp = src->duplicate();
                 tmp->limit(tmp->position() + len);
-                slice.put(tmp);
+                slice->put(tmp);
                 src->position(src->position() + len);
             }
         }

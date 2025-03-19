@@ -30,6 +30,16 @@ public:
         }
     }
 
+    ByteBuffer(char * buf, uint32_t capacity, const char * name = "")
+            : name_(name),
+              mark_(-1),
+              limit_(capacity),
+              position_(0),
+              capacity_(capacity),
+              alloc_buffer_(false) {
+        p_buffer_ = static_cast<int8_t *>(static_cast<void *>(buf));
+    }
+
     ByteBuffer(int8_t * arr, uint32_t length, const char * name = "")
             : name_(name), 
               mark_(-1),

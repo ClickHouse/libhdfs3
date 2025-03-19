@@ -136,8 +136,17 @@ void StripeReader::readParityChunks(int num) {
 
 std::vector<shared_ptr<ReaderStrategy>> StripeReader::getReadStrategies(StripedBlockUtil::StripingChunk & chunk) {
     std::vector<shared_ptr<ReaderStrategy>> strategies;
-    shared_ptr<ReaderStrategy> strategy = shared_ptr<ReaderStrategy>(new ReaderStrategy(*chunk.getByteBuffer()));
-    strategies.push_back(strategy);
+    if (chunk.useByteBuffer()) {
+        shared_ptr<ReaderStrategy> strategy = shared_ptr<ReaderStrategy>(new ReaderStrategy(*chunk.getByteBuffer()));
+        strategies.push_back(strategy);
+        return strategies;
+    }
+
+    strategies.resize(chunk.getChunkBuffer()->getSlices().size());
+    for (int i = 0; i < strategies.size(); i++) {
+        ByteBuffer * buffer = chunk.getChunkBuffer()->getSlice(i);
+        strategies[i] = shared_ptr<ReaderStrategy>(new ReaderStrategy(*buffer));
+    }
     return strategies;
 }
 
