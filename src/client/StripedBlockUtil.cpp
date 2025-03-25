@@ -93,7 +93,7 @@ void StripedBlockUtil::divideOneStripe(shared_ptr<ECPolicy> ecPolicy,
       StripingCell & cell = cells[i];
       long cellStart = cell.idxInInternalBlk * cellSize + cell.offset;
       long cellEnd = cellStart + cell.size - 1;
-      StripingChunk * chunk;
+      shared_ptr<StripingChunk> chunk;
       for (int j = 0; j < static_cast<int>(stripes.size()); j++) {
         AlignedStripe * s = stripes[j];
         long stripeEnd = s->getOffsetInBlock() + s->getSpanInBlock() - 1;
@@ -103,7 +103,7 @@ void StripedBlockUtil::divideOneStripe(shared_ptr<ECPolicy> ecPolicy,
         if (overLapLen > 0) {
             chunk = s->chunks[cell.idxInStripe];
             if (chunk == nullptr) {
-                chunk = new StripingChunk();
+                chunk = shared_ptr<StripingChunk>(new StripingChunk());
                 s->chunks[cell.idxInStripe] = chunk;
             }
             int pos = static_cast<int>(bufOffset + overlapStart - cellStart);
@@ -293,7 +293,7 @@ void StripedBlockUtil::prepareAllZeroChunks(LocatedBlock & blockGroup,
                 cellSize, dataBlkNum, i);
             if (internalBlkLen <= s.getOffsetInBlock()) {
                 Preconditions::checkState(s.chunks[i] == nullptr);
-                s.chunks[i] = new StripingChunk(StripingChunk::ALLZERO);
+                s.chunks[i] = shared_ptr<StripingChunk>(new StripingChunk(StripingChunk::ALLZERO));
             }
         }
     }

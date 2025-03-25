@@ -243,31 +243,20 @@ public:
 
     class AlignedStripe {
     public:
-        VerticalRange * range;
+        shared_ptr<VerticalRange> range;
         /** status of each chunk in the stripe. */
-        std::vector<StripingChunk*> chunks;
+        std::vector<shared_ptr<StripingChunk>> chunks;
         int fetchedChunksNum = 0;
         int missingChunksNum = 0;
 
         AlignedStripe(long offsetInBlock, long length, int width) {
             Preconditions::checkArgument(offsetInBlock >= 0 && length >= 0,
                 "Offset and length must be non-negative");
-            range = new VerticalRange(offsetInBlock, length);
+            range = shared_ptr<VerticalRange>(new VerticalRange(offsetInBlock, length));
             chunks.resize(width);
         }
 
         ~AlignedStripe() {
-            for (int i = 0; i < static_cast<int>(chunks.size()); ++i) {
-                if (chunks[i] != nullptr) {
-                    delete chunks[i];
-                    chunks[i] = nullptr;
-                }
-            }
-
-            if (range != nullptr) {
-                delete range;
-                range = nullptr;
-            }
         }
 
         bool include(long pos) {

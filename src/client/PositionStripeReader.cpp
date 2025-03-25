@@ -67,7 +67,7 @@ void PositionStripeReader::initDecodeInputs(StripedBlockUtil::AlignedStripe & al
     for (int i = 0; i < dataBlkNum; i++) {
         if (alignedStripe.chunks[i] == nullptr) {
             alignedStripe.chunks[i] =
-                    new StripedBlockUtil::StripingChunk(decodeInputs[i]->getBuffer());
+                    shared_ptr<StripedBlockUtil::StripingChunk>(new StripedBlockUtil::StripingChunk(decodeInputs[i]->getBuffer()));
         }
     }
 }
@@ -81,7 +81,7 @@ bool PositionStripeReader::prepareParityChunk(int index) {
                                                                                  index * bufLen, bufLen));
 
     alignedStripe.chunks[index] =
-            new StripedBlockUtil::StripingChunk(decodeInputs[index]->getBuffer());
+            shared_ptr<StripedBlockUtil::StripingChunk>(new StripedBlockUtil::StripingChunk(decodeInputs[index]->getBuffer()));
 
     return true;
 }

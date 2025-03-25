@@ -68,7 +68,7 @@ void StatefulStripeReader::prepareDecodeInputs() {
             new ECChunk(shared_ptr<ByteBuffer>(cur->slice()), 0, bufLen));
         if (alignedStripe.chunks[i] == nullptr) {
             alignedStripe.chunks[i] =
-                new StripedBlockUtil::StripingChunk(decodeInputs[i]->getBuffer());
+                shared_ptr<StripedBlockUtil::StripingChunk>(new StripedBlockUtil::StripingChunk(decodeInputs[i]->getBuffer()));
         }
     }
 }
@@ -86,7 +86,7 @@ bool StatefulStripeReader::prepareParityChunk(int index) {
             new ECChunk(shared_ptr<ByteBuffer>(buf->slice()), 0,
                         static_cast<int>(alignedStripe.range -> spanInBlock)));
     alignedStripe.chunks[index] =
-        new StripedBlockUtil::StripingChunk(decodeInputs[index]->getBuffer());
+        shared_ptr<StripedBlockUtil::StripingChunk>(new StripedBlockUtil::StripingChunk(decodeInputs[index]->getBuffer()));
     return true;
 }
 
