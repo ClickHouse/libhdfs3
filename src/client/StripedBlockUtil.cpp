@@ -87,8 +87,7 @@ void StripedBlockUtil::divideOneStripe(shared_ptr<ECPolicy> ecPolicy,
 
     // Step 4: calculate each chunk's position in destination buffer. Since the
     // whole read range is within a single stripe, the logic is simpler here.
-    int bufOffset =
-        static_cast<int>(rangeStartInBlockGroup % (static_cast<int>(cellSize * dataBlkNum)));
+    int done = 0;
     for (int i = 0; i < static_cast<int>(cells.size()); i++) {
       StripingCell & cell = cells[i];
       long cellStart = cell.idxInInternalBlk * cellSize + cell.offset;
@@ -106,11 +105,11 @@ void StripedBlockUtil::divideOneStripe(shared_ptr<ECPolicy> ecPolicy,
                 chunk = shared_ptr<StripingChunk>(new StripingChunk());
                 s->chunks[cell.idxInStripe] = chunk;
             }
-            int pos = static_cast<int>(bufOffset + overlapStart - cellStart);
+            int pos = static_cast<int>(done + overlapStart - cellStart);
             chunk->getChunkBuffer()->addSlice(buf, pos, overLapLen);
         }
       }
-      bufOffset += cell.size;
+      done += cell.size;
     }
 
     // Step 5: prepare ALLZERO blocks

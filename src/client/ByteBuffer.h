@@ -61,7 +61,11 @@ public:
 
     // Write Methods
     ByteBuffer & put(const ByteBuffer * bb) {
-        for (uint32_t i = 0; i < bb->limit(); i++)
+        int n = bb->remaining();
+        if (n > remaining()) {
+            throw std::runtime_error("buffer over flow");
+        }
+        for (uint32_t i = bb->position(); i < bb->limit(); i++)
             append<int8_t>(bb->get(i));
 
         return *this;
