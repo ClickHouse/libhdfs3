@@ -30,6 +30,16 @@ public:
         }
     }
 
+    ByteBuffer(char * buf, uint32_t capacity, const char * name = "")
+            : name_(name),
+              mark_(-1),
+              limit_(capacity),
+              position_(0),
+              capacity_(capacity),
+              alloc_buffer_(false) {
+        p_buffer_ = static_cast<int8_t *>(static_cast<void *>(buf));
+    }
+
     ByteBuffer(int8_t * arr, uint32_t length, const char * name = "")
             : name_(name), 
               mark_(-1),
@@ -51,7 +61,11 @@ public:
 
     // Write Methods
     ByteBuffer & put(const ByteBuffer * bb) {
-        for (uint32_t i = 0; i < bb->limit(); i++)
+        int n = bb->remaining();
+        if (n > remaining()) {
+            throw std::runtime_error("buffer over flow");
+        }
+        for (uint32_t i = bb->position(); i < bb->limit(); i++)
             append<int8_t>(bb->get(i));
 
         return *this;

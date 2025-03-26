@@ -1217,5 +1217,28 @@ std::string InputStreamImpl::toString() {
     }
 }
 
+shared_ptr<LocatedBlock> InputStreamImpl::getBlockAt(int64_t offset) {
+    lock_guard<std::recursive_mutex> lock(infoMutex);
+    assert(lbs != null);
+
+    shared_ptr<LocatedBlock> blk;
+
+    // check offset
+    if (offset < 0 || offset >= getFileLength()) {
+        THROW(HdfsIOException, "offset < 0 || offset >= getFileLength(), offset: %" PRId64 ", file length: %" PRId64,
+              offset, getFileLength());
+    } else if (offset >= lbs->getFileLength()) {
+        // offset to the portion of the last block,
+        // which is not known to the name-node yet;
+        // getting the last block
+        blk = lbs->getLastBlock();
+        blk->setLastBlock(true);
+    } else {
+        // search cached blocks first
+        blk = fetchBlockAt(offset, 0, true);
+    }
+    return blk;
+}
+
 }
 }

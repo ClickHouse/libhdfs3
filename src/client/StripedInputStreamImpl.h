@@ -70,6 +70,8 @@ private:
     int32_t getStripedBufOffset(int64_t offsetInBlockGroup);
     int32_t copyToTarget(char * buf, int32_t size);
 
+    void fetchBlockByteRange(shared_ptr<LocatedBlock> curBlock, int64_t start, int64_t end, char * buf) override;
+    shared_ptr<LocatedBlock> getBlockGroupAt(int64_t offset);
     void readOneStripe();
     void seekToBlock(const LocatedBlock & lb);
     void setCurBlock();

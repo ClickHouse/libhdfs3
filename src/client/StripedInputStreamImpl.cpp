@@ -25,6 +25,7 @@
 #include "FileSystemInter.h"
 #include "RemoteBlockReader.h"
 #include "StatefulStripeReader.h"
+#include "PositionStripeReader.h"
 #include "ReadShortCircuitInfo.h"
 #include "LocalBlockReader.h"
 #include "Faultjector.h"
@@ -244,6 +245,55 @@ bool StripedInputStreamImpl::createBlockReader(LocatedBlock & block,
 
         return false;
     }
+}
+
+void StripedInputStreamImpl::fetchBlockByteRange(shared_ptr<LocatedBlock> curBlock, int64_t start, int64_t end, char * buf) {
+    // Refresh the striped block group
+    shared_ptr<LocatedBlock> blockGroup = getBlockGroupAt(curBlock->getOffset());
+
+    shared_ptr<ByteBuffer> byteBuffer = shared_ptr<ByteBuffer>(new ByteBuffer(buf, end - start + 1));
+    std::vector<StripedBlockUtil::AlignedStripe*> stripes;
+    StripedBlockUtil::divideOneStripe(
+            ecPolicy, cellSize, *blockGroup, start,
+            end, byteBuffer.get(), stripes);
+    std::vector<LocatedBlock> blks;
+    StripedBlockUtil::parseStripedBlockGroup(*blockGroup, cellSize, dataBlkNum, parityBlkNum, blks);
+    for (int i = 0; i < static_cast<int>(blockGroup->getIndices().size()); ++i) {
+        int32_t idx = blockGroup->getIndices()[i];
+        LOG(DEBUG1, "block[%d] id=%ld, size=%ld, locs=%s, poolid=%s\n", idx, blks[idx].getBlockId(),
+            blks[idx].getNumBytes(), blks[idx].getLocations()[0].getIpAddr().c_str(), blks[idx].getPoolId().c_str());
+    }
+
+    std::vector<StripeReader::BlockReaderInfo *> preaderInfos;
+    preaderInfos.resize(groupSize);
+    // read stripe
+    for (int i = 0; i < static_cast<int>(stripes.size()); ++i) {
+        // Parse group to get chosen DN location
+        shared_ptr<StripeReader> preader =
+                shared_ptr<StripeReader>(new PositionStripeReader(*stripes[i], ecPolicy, blks,
+                                                                  preaderInfos, nullptr, decoder, this, conf));
+        preader->readStripe();
+    }
+
+    // release preaderInfos
+    for (int i = 0; i < groupSize; i++) {
+        closeReader(preaderInfos[i]);
+        preaderInfos[i] = nullptr;
+    }
+
+    // release stripes
+    for (int i = 0; i < static_cast<int>(stripes.size()); ++i) {
+        if (stripes[i] != nullptr) {
+            delete stripes[i];
+            stripes[i] = nullptr;
+        }
+    }
+}
+
+shared_ptr<LocatedBlock> StripedInputStreamImpl::getBlockGroupAt(int64_t offset) {
+    shared_ptr<LocatedBlock> lb = getBlockAt(offset);
+    assert(lb->isStriped());
+    return lb;
 }
 
 void StripedInputStreamImpl::readOneStripe() {

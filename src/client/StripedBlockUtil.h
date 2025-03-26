@@ -81,27 +81,34 @@ public:
     };
 
     class ChunkByteBuffer {
-        std::vector<ByteBuffer> slices;
+        std::vector<ByteBuffer*> slices;
 
 	public:
         ChunkByteBuffer() {
         }
 
-        ByteBuffer getSlice(int i) const {
+        ByteBuffer* getSlice(int i) const {
             return slices[i];
         }
 
-        std::vector<ByteBuffer> getSlices() const {
+        std::vector<ByteBuffer*> getSlices() const {
             return slices;
+        }
+
+        void addSlice(ByteBuffer* buffer, int offset, int len) {
+            ByteBuffer* tmp = buffer->duplicate();
+            tmp->position(buffer->position() + offset);
+            tmp->limit(buffer->position() + offset + len);
+            slices.push_back(tmp->slice());
         }
 
         /**
          *  Note: target will be ready-to-read state after the call.
          */
         void copyTo(ByteBuffer* target) {
-            for (ByteBuffer slice : slices) {
-                slice.flip();
-                target->put(&slice);
+            for (ByteBuffer* slice : slices) {
+                slice->flip();
+                target->put(slice);
             }
             target->clear();
         }
@@ -109,11 +116,11 @@ public:
         void copyFrom(ByteBuffer * src) {
             ByteBuffer * tmp;
             int len;
-            for (ByteBuffer slice : slices) {
-                len = slice.remaining();
+            for (ByteBuffer* slice : slices) {
+                len = slice->remaining();
                 tmp = src->duplicate();
                 tmp->limit(tmp->position() + len);
-                slice.put(tmp);
+                slice->put(tmp);
                 src->position(src->position() + len);
             }
         }
@@ -236,31 +243,20 @@ public:
 
     class AlignedStripe {
     public:
-        VerticalRange * range;
+        shared_ptr<VerticalRange> range;
         /** status of each chunk in the stripe. */
-        std::vector<StripingChunk*> chunks;
+        std::vector<shared_ptr<StripingChunk>> chunks;
         int fetchedChunksNum = 0;
         int missingChunksNum = 0;
 
         AlignedStripe(long offsetInBlock, long length, int width) {
             Preconditions::checkArgument(offsetInBlock >= 0 && length >= 0,
                 "Offset and length must be non-negative");
-            range = new VerticalRange(offsetInBlock, length);
+            range = shared_ptr<VerticalRange>(new VerticalRange(offsetInBlock, length));
             chunks.resize(width);
         }
 
         ~AlignedStripe() {
-            for (int i = 0; i < static_cast<int>(chunks.size()); ++i) {
-                if (chunks[i] != nullptr) {
-                    delete chunks[i];
-                    chunks[i] = nullptr;
-                }
-            }
-
-            if (range != nullptr) {
-                delete range;
-                range = nullptr;
-            }
         }
 
         bool include(long pos) {

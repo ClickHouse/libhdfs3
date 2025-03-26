@@ -111,7 +111,7 @@ void StripeReader::checkMissingBlocks() {
 void StripeReader::readDataForDecoding() {
     prepareDecodeInputs();
     for (int i = 0; i < dataBlkNum; i++) {
-        Preconditions::checkNotNull(alignedStripe.chunks[i]);
+        Preconditions::checkNotNull(alignedStripe.chunks[i].get());
         if (alignedStripe.chunks[i]->state == StripedBlockUtil::StripingChunk::REQUESTED) {
             if (!readChunk(targetBlocks[i], i)) {
                 alignedStripe.missingChunksNum++;
@@ -136,8 +136,17 @@ void StripeReader::readParityChunks(int num) {
 
 std::vector<shared_ptr<ReaderStrategy>> StripeReader::getReadStrategies(StripedBlockUtil::StripingChunk & chunk) {
     std::vector<shared_ptr<ReaderStrategy>> strategies;
-    shared_ptr<ReaderStrategy> strategy = shared_ptr<ReaderStrategy>(new ReaderStrategy(*chunk.getByteBuffer()));
-    strategies.push_back(strategy);
+    if (chunk.useByteBuffer()) {
+        shared_ptr<ReaderStrategy> strategy = shared_ptr<ReaderStrategy>(new ReaderStrategy(*chunk.getByteBuffer()));
+        strategies.push_back(strategy);
+        return strategies;
+    }
+
+    strategies.resize(chunk.getChunkBuffer()->getSlices().size());
+    for (int i = 0; i < strategies.size(); i++) {
+        ByteBuffer * buffer = chunk.getChunkBuffer()->getSlice(i);
+        strategies[i] = shared_ptr<ReaderStrategy>(new ReaderStrategy(*buffer));
+    }
     return strategies;
 }
 
@@ -207,7 +216,7 @@ int32_t StripeReader::readFromBlock(const LocatedBlock & curBlock,
 }
 
 bool StripeReader::readChunk(LocatedBlock& block, int chunkIndex) {
-    StripedBlockUtil::StripingChunk * chunk = alignedStripe.chunks[chunkIndex];
+    shared_ptr<StripedBlockUtil::StripingChunk> chunk = alignedStripe.chunks[chunkIndex];
     if (block.getBlockId() == 0) {
         chunk->state = StripedBlockUtil::StripingChunk::MISSING;
         return false;
@@ -294,8 +303,8 @@ void StripeReader::readStripe() {
             StripedBlockUtil::StripingChunkReadResult r(0, 0);
             StripedBlockUtil::getNextCompletedStripedRead(futures, r);
 
-            StripedBlockUtil::StripingChunk * returnedChunk = alignedStripe.chunks[r.index];
-            Preconditions::checkNotNull(returnedChunk);
+            shared_ptr<StripedBlockUtil::StripingChunk> returnedChunk = alignedStripe.chunks[r.index];
+            Preconditions::checkNotNull(returnedChunk.get());
             Preconditions::checkState(returnedChunk->state == StripedBlockUtil::StripingChunk::PENDING);
 
             if (r.state == StripedBlockUtil::StripingChunkReadResult::SUCCESSFUL) {
@@ -342,7 +351,7 @@ void StripeReader::readStripe() {
  */
 void StripeReader::finalizeDecodeInputs() {
     for (int i = 0; i < static_cast<int>(alignedStripe.chunks.size()); i++) {
-        StripedBlockUtil::StripingChunk * chunk = alignedStripe.chunks[i];
+        shared_ptr<StripedBlockUtil::StripingChunk> chunk = alignedStripe.chunks[i];
         if (chunk != nullptr && chunk->state == StripedBlockUtil::StripingChunk::FETCHED) {
             if (chunk->useChunkBuffer()) {
                 chunk->getChunkBuffer()->copyTo(decodeInputs[i]->getBuffer().get());
@@ -377,7 +386,7 @@ void StripeReader::decodeAndFillBuffer(bool fillBuffer) {
     if (fillBuffer) {
         for (int i = 0; i < static_cast<int>(decodeIndices.size()); i++) {
             int missingBlkIdx = decodeIndices[i];
-            StripedBlockUtil::StripingChunk *chunk = alignedStripe.chunks[missingBlkIdx];
+            shared_ptr<StripedBlockUtil::StripingChunk> chunk = alignedStripe.chunks[missingBlkIdx];
             if (chunk->state == StripedBlockUtil::StripingChunk::MISSING && chunk->useChunkBuffer()) {
                 chunk->getChunkBuffer()->copyFrom((outputs[i]->getBuffer().get()));
             }
