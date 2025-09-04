@@ -1219,7 +1219,7 @@ std::string InputStreamImpl::toString() {
 
 shared_ptr<LocatedBlock> InputStreamImpl::getBlockAt(int64_t offset) {
     lock_guard<std::recursive_mutex> lock(infoMutex);
-    assert(lbs != null);
+    assert(lbs != NULL);
 
     shared_ptr<LocatedBlock> blk;
 
