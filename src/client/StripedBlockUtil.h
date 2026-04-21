@@ -329,26 +329,26 @@ public:
 
         StripingCell() = default;
 
-        StripingCell(shared_ptr<ECPolicy> ecPolicy, int cellSize, long idxInBlkGroup,
+        StripingCell(shared_ptr<ECPolicy> policy, int portionSize, long blkGroupCellIndex,
             long cellOffset) {
-            ecPolicy = ecPolicy;
-            idxInBlkGroup = idxInBlkGroup;
-            idxInInternalBlk = idxInBlkGroup / ecPolicy->getNumDataUnits();
-            idxInStripe = static_cast<int>(idxInBlkGroup -
-                idxInInternalBlk * ecPolicy->getNumDataUnits());
+            ecPolicy = policy;
+            idxInBlkGroup = blkGroupCellIndex;
+            idxInInternalBlk = blkGroupCellIndex / policy->getNumDataUnits();
+            idxInStripe = static_cast<int>(blkGroupCellIndex -
+                idxInInternalBlk * policy->getNumDataUnits());
             offset = cellOffset;
-            size = cellSize;
+            size = portionSize;
         }
 
-        void init(shared_ptr<ECPolicy> ecPolicy, int cellSize, long idxInBlkGroup,
+        void init(shared_ptr<ECPolicy> policy, int portionSize, long blkGroupCellIndex,
             long cellOffset) {
-            ecPolicy = ecPolicy;
-            idxInBlkGroup = idxInBlkGroup;
-            idxInInternalBlk = idxInBlkGroup / ecPolicy->getNumDataUnits();
-            idxInStripe = static_cast<int>(idxInBlkGroup -
-                idxInInternalBlk * ecPolicy->getNumDataUnits());
+            ecPolicy = policy;
+            idxInBlkGroup = blkGroupCellIndex;
+            idxInInternalBlk = blkGroupCellIndex / policy->getNumDataUnits();
+            idxInStripe = static_cast<int>(blkGroupCellIndex -
+                idxInInternalBlk * policy->getNumDataUnits());
             offset = cellOffset;
-            size = cellSize;
+            size = portionSize;
         }
 
         int getIdxInStripe() const {
@@ -426,9 +426,16 @@ public:
     static void checkBlocks(ExtendedBlock blockGroup, int i, ExtendedBlock blocki);
     static void constructInternalBlock(LocatedBlock & bg, int32_t idxInReturnedLocs, int32_t cellSize,
         int32_t dataBlkNum, int32_t idxInBlockGroup, LocatedBlock & lb);
+    /**
+     * @param bufBaseOffset byte offset in buf where the logical range
+     *        [rangeStartInBlockGroup, rangeEndInBlockGroup] is laid out contiguously.
+     *        Use 0 when buf only holds that range; use (offsetInBlockGroup % stripeLen)
+     *        when buf is the full stripe buffer in StripedInputStreamImpl::readOneStripe.
+     */
     static void divideOneStripe(shared_ptr<ECPolicy> ecPolicy,
         int cellSize, LocatedBlock & blockGroup, long rangeStartInBlockGroup,
-        long rangeEndInBlockGroup, ByteBuffer * buf, std::vector<AlignedStripe*> & stripes);
+        long rangeEndInBlockGroup, ByteBuffer * buf, int32_t bufBaseOffset,
+        std::vector<AlignedStripe*> & stripes);
 
     static int64_t getInternalBlockLength(int64_t dataSize, int32_t cellSize,
         int32_t numDataBlocks, int32_t idxInBlockGroup);

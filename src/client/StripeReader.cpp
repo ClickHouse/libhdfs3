@@ -311,10 +311,8 @@ void StripeReader::readStripe() {
                 returnedChunk->state = StripedBlockUtil::StripingChunk::FETCHED;
                 alignedStripe.fetchedChunksNum++;
                 updateState4SuccessRead(r);
-                if (alignedStripe.fetchedChunksNum == dataBlkNum) {
-                    clearFutures();
-                    break;
-                }
+                // Do not exit early when fetchedChunksNum reaches dataBlkNum: parity
+                // reads and decode retries also enqueue futures and must be drained.
             } else {
                 returnedChunk->state = StripedBlockUtil::StripingChunk::MISSING;
                 dfsStripedInputStream->closeReader(readerInfos[r.index]);

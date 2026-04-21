@@ -33,6 +33,7 @@
 
 #include <inttypes.h>
 #include <algorithm>
+#include <cstring>
 
 
 namespace Hdfs {
@@ -108,6 +109,14 @@ void StripedInputStreamImpl::resetCurStripeBuffer(bool force) {
 
     if (curStripeBuf != nullptr) {
         curStripeBuf->clear();
+        // EC stripes can have logical holes (ALLZERO / padding). Zero the whole
+        // buffer so copyToTarget never exposes stale bytes from a prior stripe.
+        std::memset(curStripeBuf->getBuffer(), 0, curStripeBuf->capacity());
+    }
+
+    if (parityBuf != nullptr) {
+        parityBuf->clear();
+        std::memset(parityBuf->getBuffer(), 0, parityBuf->capacity());
     }
 
     curStripeRange->setLength(0);
@@ -255,7 +264,7 @@ void StripedInputStreamImpl::fetchBlockByteRange(shared_ptr<LocatedBlock> curBlo
     std::vector<StripedBlockUtil::AlignedStripe*> stripes;
     StripedBlockUtil::divideOneStripe(
             ecPolicy, cellSize, *blockGroup, start,
-            end, byteBuffer.get(), stripes);
+            end, byteBuffer.get(), 0, stripes);
     std::vector<LocatedBlock> blks;
     StripedBlockUtil::parseStripedBlockGroup(*blockGroup, cellSize, dataBlkNum, parityBlkNum, blks);
     for (int i = 0; i < static_cast<int>(blockGroup->getIndices().size()); ++i) {
@@ -322,8 +331,8 @@ void StripedInputStreamImpl::readOneStripe() {
     int64_t stripeRangeLen = stripeLimit - stripeBufOffset;
     std::vector<StripedBlockUtil::AlignedStripe*> stripes;
     StripedBlockUtil::divideOneStripe(
-        ecPolicy, cellSize, *curBlock, offsetInBlockGroup, 
-        offsetInBlockGroup + stripeRangeLen - 1, curStripeBuf, stripes);
+        ecPolicy, cellSize, *curBlock, offsetInBlockGroup,
+        offsetInBlockGroup + stripeRangeLen - 1, curStripeBuf, stripeBufOffset, stripes);
 
     // 3. read stripe
     for (int i = 0; i < static_cast<int>(stripes.size()); ++i) {

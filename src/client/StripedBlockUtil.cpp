@@ -71,7 +71,8 @@ void StripedBlockUtil::constructInternalBlock(LocatedBlock & bg, int32_t idxInRe
 
 void StripedBlockUtil::divideOneStripe(shared_ptr<ECPolicy> ecPolicy,
     int cellSize, LocatedBlock & blockGroup, long rangeStartInBlockGroup,
-    long rangeEndInBlockGroup, ByteBuffer * buf, std::vector<AlignedStripe*> & stripes) {
+    long rangeEndInBlockGroup, ByteBuffer * buf, int32_t bufBaseOffset,
+    std::vector<AlignedStripe*> & stripes) {
     int dataBlkNum = ecPolicy->getNumDataUnits();
     // Step 1: map the byte range to StripingCells
     std::vector<StripingCell> cells;
@@ -105,7 +106,7 @@ void StripedBlockUtil::divideOneStripe(shared_ptr<ECPolicy> ecPolicy,
                 chunk = shared_ptr<StripingChunk>(new StripingChunk());
                 s->chunks[cell.idxInStripe] = chunk;
             }
-            int pos = static_cast<int>(done + overlapStart - cellStart);
+            int pos = static_cast<int>(bufBaseOffset + done + overlapStart - cellStart);
             chunk->getChunkBuffer()->addSlice(buf, pos, overLapLen);
         }
       }
