@@ -215,6 +215,17 @@ bool StripedInputStreamImpl::createBlockReader(LocatedBlock & block,
                     block.getToken(), clientName, verify, *conf));
             }
 
+        } catch (const HdfsTimeoutException & e) {
+            lastException = current_exception();
+            std::string buffer;
+            LOG(LOG_ERROR,
+                "cannot setup block reader for Block: %s file %s on Datanode: %s.\n%s\nretry another node",
+                block.toString().c_str(), path.c_str(),
+                node->formatAddress().c_str(), GetExceptionDetail(e, buffer));
+            failedNodes.push_back(*node);
+            failedNodes.sort();
+
+            continue;
         } catch (const HdfsIOException & e) {
             lastException = current_exception();
             std::string buffer;
