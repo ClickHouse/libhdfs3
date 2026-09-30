@@ -34,6 +34,7 @@ SlowMetrics::SlowMetrics(int64_t thresholdMs, int64_t count,
     : thresholdMs(thresholdMs),
       count(count),
       intervalMs(intervalMs),
+      totalValueMs(0.0),
       lastUpdateMs_(0) {
 }
 
@@ -45,6 +46,7 @@ int64_t SlowMetrics::lastUpdateMs() const {
 void SlowMetrics::deleteTimeoutMetric(int64_t nowMs) {
     while (!slowMetricList.empty()
            && nowMs - slowMetricList.front().timestampMs > intervalMs) {
+        totalValueMs -= static_cast<double>(slowMetricList.front().valueMs);
         slowMetricList.pop_front();
     }
 }
@@ -61,15 +63,12 @@ bool SlowMetrics::putMetric(int64_t valueMs) {
 
     deleteTimeoutMetric(nowMs);
     slowMetricList.push_back(SlowMetric(nowMs, valueMs));
+    totalValueMs += static_cast<double>(valueMs);
     return true;
 }
 
 bool SlowMetrics::inSlowState() {
-    const int64_t nowMs = currentTimeMs();
-
-    lock_guard<mutex> lock(slowMetricMutex);
-    deleteTimeoutMetric(nowMs);
-    return count > 0 && static_cast<int64_t>(slowMetricList.size()) >= count;
+    return count > 0 && static_cast<int64_t>(slowCounts()) >= count;
 }
 
 double SlowMetrics::getAvg() {
@@ -82,13 +81,7 @@ double SlowMetrics::getAvg() {
         return 0.0;
     }
 
-    double total = 0.0;
-
-    for (size_t i = 0; i < slowMetricList.size(); ++i) {
-        total += static_cast<double>(slowMetricList[i].valueMs);
-    }
-
-    return total / slowMetricList.size();
+    return totalValueMs / slowMetricList.size();
 }
 
 size_t SlowMetrics::slowCounts() {
@@ -102,6 +95,7 @@ size_t SlowMetrics::slowCounts() {
 void SlowMetrics::clear() {
     lock_guard<mutex> lock(slowMetricMutex);
     slowMetricList.clear();
+    totalValueMs = 0.0;
     lastUpdateMs_ = 0;
 }
 

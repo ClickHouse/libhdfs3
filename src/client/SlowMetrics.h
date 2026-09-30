@@ -99,6 +99,7 @@ private:
     int64_t count;
     int64_t intervalMs;
     std::deque<SlowMetric> slowMetricList;
+    double totalValueMs;
     int64_t lastUpdateMs_;
     mutable mutex slowMetricMutex;
 };

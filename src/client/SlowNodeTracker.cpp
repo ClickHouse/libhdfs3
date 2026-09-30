@@ -107,20 +107,11 @@ void SlowNodeTracker::cleanSlowNodesIfNeeded(int64_t nowMs) {
 }
 
 void SlowNodeTracker::cleanSlowNodes(int64_t nowMs) {
-    for (unordered_map<std::string, int64_t>::iterator it = slowNodesExpireAtMs.begin();
-            it != slowNodesExpireAtMs.end();) {
-        if (it->second <= nowMs) {
+    for (unordered_map<std::string, SlowNodeInfo>::iterator it = slowNodes.begin();
+            it != slowNodes.end();) {
+        if (it->second.expireAtMs <= nowMs) {
             LOG(DEBUG2, "SlowNodeTracker: DataNode %s is no longer slow.", it->first.c_str());
-            it = slowNodesExpireAtMs.erase(it);
-        } else {
-            ++it;
-        }
-    }
-
-    for (unordered_map<std::string, double>::iterator it = slowNodeAvgMs.begin();
-            it != slowNodeAvgMs.end();) {
-        if (slowNodesExpireAtMs.find(it->first) == slowNodesExpireAtMs.end()) {
-            it = slowNodeAvgMs.erase(it);
+            it = slowNodes.erase(it);
         } else {
             ++it;
         }
@@ -145,12 +136,12 @@ size_t SlowNodeTracker::MaxMetricCount() const {
 
 void SlowNodeTracker::markSlow(const std::string & key, double avg, int64_t nowMs) {
     if (!cacheEnabled()) {
-        slowNodeAvgMs[key] = avg;
         return;
     }
 
-    if (slowNodesExpireAtMs.find(key) != slowNodesExpireAtMs.end()) {
-        slowNodeAvgMs[key] = avg;
+    unordered_map<std::string, SlowNodeInfo>::iterator slow = slowNodes.find(key);
+    if (slow != slowNodes.end()) {
+        slow->second.avgMs = avg;
         return;
     }
 
@@ -159,24 +150,22 @@ void SlowNodeTracker::markSlow(const std::string & key, double avg, int64_t nowM
      * been slow for the longest time is dropped, so that the DataNodes which
      * have been slow most recently are kept.
      */
-    while (slowNodesExpireAtMs.size() >= static_cast<size_t>(maxCacheSize)) {
-        unordered_map<std::string, int64_t>::iterator oldest = slowNodesExpireAtMs.begin();
+    while (slowNodes.size() >= static_cast<size_t>(maxCacheSize)) {
+        unordered_map<std::string, SlowNodeInfo>::iterator oldest = slowNodes.begin();
 
-        for (unordered_map<std::string, int64_t>::iterator it = std::next(oldest);
-                it != slowNodesExpireAtMs.end(); ++it) {
-            if (it->second < oldest->second) {
+        for (unordered_map<std::string, SlowNodeInfo>::iterator it = std::next(oldest);
+                it != slowNodes.end(); ++it) {
+            if (it->second.expireAtMs < oldest->second.expireAtMs) {
                 oldest = it;
             }
         }
 
         LOG(DEBUG2, "SlowNodeTracker: evict DataNode %s from slow node cache.",
             oldest->first.c_str());
-        slowNodeAvgMs.erase(oldest->first);
-        slowNodesExpireAtMs.erase(oldest);
+        slowNodes.erase(oldest);
     }
 
-    slowNodeAvgMs[key] = avg;
-    slowNodesExpireAtMs[key] = nowMs + cacheExpirationMs;
+    slowNodes[key] = SlowNodeInfo(nowMs + cacheExpirationMs, avg);
 }
 
 void SlowNodeTracker::recordRead(const DatanodeInfo & node, int64_t elapsedMs,
@@ -217,8 +206,6 @@ void SlowNodeTracker::recordRead(const DatanodeInfo & node, int64_t elapsedMs,
 
         if (kickoutEnabled) {
             markSlow(key, avg, nowMs);
-        } else {
-            slowNodeAvgMs[key] = avg;
         }
 
         cleanSlowNodes(nowMs);
@@ -241,7 +228,7 @@ bool SlowNodeTracker::isSlow(const DatanodeInfo & node) {
 
     lock_guard<mutex> lock(slowNodeMutex);
     cleanSlowNodesIfNeeded(currentTimeMs());
-    return slowNodesExpireAtMs.find(key) != slowNodesExpireAtMs.end();
+    return slowNodes.find(key) != slowNodes.end();
 }
 
 bool SlowNodeTracker::chooseBestNode(const std::vector<DatanodeInfo> & nodes,
@@ -270,14 +257,14 @@ bool SlowNodeTracker::chooseBestNode(const std::vector<DatanodeInfo> & nodes,
     /*
      * Keep the NameNode order, but do not read from a slow DataNode.
      */
-    std::vector<bool> slowNodes(nodes.size(), false);
+    std::vector<bool> slowNodeFlags(nodes.size(), false);
 
     {
         lock_guard<mutex> lock(slowNodeMutex);
         cleanSlowNodesIfNeeded(currentTimeMs());
 
         for (size_t i = 0; i < nodes.size(); ++i) {
-            slowNodes[i] = slowNodesExpireAtMs.find(nodeKey(nodes[i])) != slowNodesExpireAtMs.end();
+            slowNodeFlags[i] = slowNodes.find(nodeKey(nodes[i])) != slowNodes.end();
         }
     }
 
@@ -286,7 +273,7 @@ bool SlowNodeTracker::chooseBestNode(const std::vector<DatanodeInfo> & nodes,
             continue;
         }
 
-        if (slowNodes[i]) {
+        if (slowNodeFlags[i]) {
             LOG(DEBUG2, "SlowNodeTracker: skip slow DataNode %s.",
                 nodes[i].formatAddress().c_str());
 
@@ -326,10 +313,10 @@ bool SlowNodeTracker::chooseBestNode(const std::vector<DatanodeInfo> & nodes,
             const std::string key = nodeKey(nodes[i]);
             double avg = std::numeric_limits<double>::max();
             shared_ptr<SlowMetrics> metric;
-            unordered_map<std::string, double>::const_iterator slow = slowNodeAvgMs.find(key);
+            unordered_map<std::string, SlowNodeInfo>::const_iterator slow = this->slowNodes.find(key);
 
-            if (slow != slowNodeAvgMs.end()) {
-                avg = slow->second;
+            if (slow != this->slowNodes.end()) {
+                avg = slow->second.avgMs;
             } else if ((it = metrics.find(key)) != metrics.end()) {
                 metric = it->second;
             }

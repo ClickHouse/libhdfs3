@@ -123,11 +123,22 @@ private:
     static const int DEFAULT_MAX_METRIC_COUNT = 1024;
     static const int64_t CLEAN_INTERVAL_MS = 1000;
 
+    struct SlowNodeInfo {
+        SlowNodeInfo() : expireAtMs(0), avgMs(0.0) {
+        }
+
+        SlowNodeInfo(int64_t expireAtMs, double avgMs)
+            : expireAtMs(expireAtMs), avgMs(avgMs) {
+        }
+
+        int64_t expireAtMs;
+        double avgMs;
+    };
+
     mutex slowNodeMutex;
     int64_t lastCleanMs;
     unordered_map<std::string, shared_ptr<SlowMetrics> > metrics;
-    unordered_map<std::string, int64_t> slowNodesExpireAtMs;
-    unordered_map<std::string, double> slowNodeAvgMs;
+    unordered_map<std::string, SlowNodeInfo> slowNodes;
 };
 
 }

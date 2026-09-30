@@ -281,8 +281,7 @@ TEST(TestSlowNodeTracker, BoundMetricsWhenCacheIsDisabled) {
     }
 
     EXPECT_LE(tracker.metrics.size(), 2048u);
-    EXPECT_EQ(0u, tracker.slowNodesExpireAtMs.size());
-    EXPECT_EQ(0u, tracker.slowNodeAvgMs.size());
+    EXPECT_EQ(0u, tracker.slowNodes.size());
 }
 
 /*
