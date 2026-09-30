@@ -52,6 +52,8 @@
 namespace Hdfs {
 namespace Internal {
 
+class SlowNodeTracker;
+
 /**
  * A input stream used read data from hdfs.
  */
@@ -169,6 +171,7 @@ protected:
     // (protected by mutex on infoMutex)
     shared_ptr<LocatedBlocks> lbs;
     shared_ptr<SessionConfig> conf;
+    shared_ptr<SlowNodeTracker> slowNodeTracker;
     std::string path;
     LockVector<DatanodeInfo> failedNodes;
     std::vector<char> localReaderBuffer;

@@ -52,6 +52,7 @@ namespace Internal {
 
 class InputStreamInter;
 class OutputStreamInter;
+class SlowNodeTracker;
 
 class FileSystemImpl: public FileSystemInter {
 public:
@@ -487,6 +488,10 @@ public:
         return *peerCache;
     }
 
+    shared_ptr<SlowNodeTracker> getSlowNodeTracker() {
+        return slowNodeTracker;
+    }
+
 private:
     Config conf;
     FileSystemKey key;
@@ -495,6 +500,7 @@ private:
     Namenode * nn;
     SessionConfig sconf;
     shared_ptr<PeerCache> peerCache;
+    shared_ptr<SlowNodeTracker> slowNodeTracker;
     std::string clientName;
     std::string tokenService;
     std::string workingDir;

@@ -29,6 +29,7 @@
 #define _HDFS_LIBHDFS3_SERVER_DATANODEINFO_H_
 
 #include <cstdint>
+#include <cstring>
 #include <string>
 #include <sstream>
 
@@ -42,8 +43,25 @@ namespace Internal {
  */
 class DatanodeInfo {
 public:
+    /**
+     * The value which the default constructor assigns to every field. A
+     * DataNode whose datanodeId keeps it has never been set to a real one.
+     */
+    static const char * unsetValue() {
+        return "null";
+    }
+
     DatanodeInfo() : xferPort(0), infoPort(0), ipcPort(0),
-        ipAddr("null"), hostName("null"), datanodeId("null"), location("null") {}
+        ipAddr(unsetValue()), hostName(unsetValue()),
+        datanodeId(unsetValue()), location(unsetValue()) {}
+
+    /**
+     * To test whether this DataNode has been set to a real one.
+     * @return return true if the DataNode is not the default one.
+     */
+    bool isSet() const {
+        return strcmp(datanodeId.c_str(), unsetValue()) != 0;
+    }
 
     const std::string & getHostName() const {
         return hostName;

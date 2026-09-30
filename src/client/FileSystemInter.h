@@ -52,6 +52,7 @@ namespace Internal {
 
 class InputStreamInter;
 class OutputStreamInter;
+class SlowNodeTracker;
 class FileSystemInter;
 
 struct FileSystemWrapper {
@@ -492,6 +493,13 @@ public:
      * @return return the peer cache.
      */
     virtual PeerCache& getPeerCache() = 0;
+
+    /**
+     * Get the slow DataNode tracker which is shared by all the input streams
+     * of this file system.
+     * @return return the slow DataNode tracker.
+     */
+    virtual shared_ptr<SlowNodeTracker> getSlowNodeTracker() = 0;
 };
 
 }

@@ -89,6 +89,12 @@ sigset_t ThreadBlockSignal();
  */
 void ThreadUnBlockSignal(sigset_t sigs);
 
+/*
+ * To get the time stamp in milliseconds of the steady clock, it is not
+ * affected by the wall clock.
+ */
+int64_t currentTimeMs();
+
 }
 }
 
