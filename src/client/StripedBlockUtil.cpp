@@ -170,8 +170,12 @@ void StripedBlockUtil::parseStripedBlockGroup(LocatedBlock & bg, int32_t cellSiz
     assert(bg.isStriped());
     int32_t locatedBGSize = bg.getIndices().size();
     lbs.resize(dataBlkNum + parityBlkNum);
-    for (int8_t i = 0; i < locatedBGSize; ++i) {
+    for (int32_t i = 0; i < locatedBGSize; ++i) {
         int32_t idx = bg.getIndices()[i];
+        if (idx < 0) {
+            THROW(HdfsIOException,
+                  "Invalid striped block group from Namenode: negative block index %d", idx);
+        }
         if (idx < (dataBlkNum + parityBlkNum) && lbs[idx].getBlockId() == 0) {
             constructInternalBlock(bg, i, cellSize, dataBlkNum, idx, lbs[idx]);
         }

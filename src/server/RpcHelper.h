@@ -130,11 +130,28 @@ static inline void Convert(DatanodeInfo & node,
 static inline shared_ptr<LocatedBlock> Convert(const LocatedBlockProto & proto) {
     shared_ptr<LocatedBlock> lb(new LocatedBlock);
     if (proto.has_blockindices()) {
+        if (static_cast<int>(proto.blockindices().size()) != proto.locs_size()) {
+            THROW(HdfsIOException,
+                  "Invalid LocatedBlockProto from Namenode: the number of block indices (%d) "
+                  "does not match the number of locations (%d)",
+                  static_cast<int>(proto.blockindices().size()), proto.locs_size());
+        }
+        if (proto.storageids_size() != proto.locs_size()) {
+            THROW(HdfsIOException,
+                  "Invalid LocatedBlockProto from Namenode: the number of storage IDs (%d) "
+                  "does not match the number of locations (%d) for a striped block",
+                  proto.storageids_size(), proto.locs_size());
+        }
         lb->setStriped(true);
         std::vector<int8_t> & indeces = lb->mutableIndices();
         indeces.resize(proto.blockindices().size());
         for (int i = 0; i < static_cast<int>(proto.blockindices().size()); ++i) {
             indeces[i] = ((int8_t)proto.blockindices()[i]);
+            if (indeces[i] < 0) {
+                THROW(HdfsIOException,
+                      "Invalid LocatedBlockProto from Namenode: negative block index %d",
+                      static_cast<int>(indeces[i]));
+            }
         }
         std::vector<Token> & tokens = lb->mutableTokens();
         tokens.resize(proto.blocktokens_size());
@@ -154,12 +171,30 @@ static inline shared_ptr<LocatedBlock> Convert(const LocatedBlockProto & proto) 
         Convert(nodes[i], proto.locs(i));
     }
 
-    if (proto.storagetypes_size() > 0) {
-        assert(proto.storagetypes_size() == proto.locs_size());
-        std::vector<std::string> & storageIDs = lb->mutableStorageIDs();
-        storageIDs.resize(proto.storagetypes_size());
+    if (proto.storagetypes_size() != 0 && proto.storagetypes_size() != proto.locs_size()) {
+        THROW(HdfsIOException,
+              "Invalid LocatedBlockProto from Namenode: the number of storage types (%d) "
+              "does not match the number of locations (%d)",
+              proto.storagetypes_size(), proto.locs_size());
+    }
 
-        for (int i = 0; i < proto.storagetypes_size(); ++i) {
+    /*
+     * Storage IDs are indexed in parallel with locations by the consumers
+     * (pipeline recovery, striped block parsing), so they must be either
+     * absent or have exactly one entry per location.
+     */
+    if (proto.storageids_size() != 0 && proto.storageids_size() != proto.locs_size()) {
+        THROW(HdfsIOException,
+              "Invalid LocatedBlockProto from Namenode: the number of storage IDs (%d) "
+              "does not match the number of locations (%d)",
+              proto.storageids_size(), proto.locs_size());
+    }
+
+    if (proto.storageids_size() > 0) {
+        std::vector<std::string> & storageIDs = lb->mutableStorageIDs();
+        storageIDs.resize(proto.storageids_size());
+
+        for (int i = 0; i < proto.storageids_size(); ++i) {
             storageIDs[i] = proto.storageids(i);
         }
     }
