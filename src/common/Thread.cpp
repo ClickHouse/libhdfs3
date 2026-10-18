@@ -28,6 +28,7 @@
 
 #include <unistd.h>
 
+#include "DateTime.h"
 #include "Thread.h"
 
 namespace Hdfs {
@@ -48,6 +49,11 @@ sigset_t ThreadBlockSignal() {
 
 void ThreadUnBlockSignal(sigset_t sigs) {
     pthread_sigmask(SIG_SETMASK, &sigs, 0);
+}
+
+int64_t currentTimeMs() {
+    return ToMilliSeconds(steady_clock::duration::zero(),
+                          steady_clock::now().time_since_epoch());
 }
 
 }

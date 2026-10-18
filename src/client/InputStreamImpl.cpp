@@ -25,6 +25,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "DateTime.h"
 #include "Exception.h"
 #include "ExceptionInternal.h"
 #include "FileSystemInter.h"
@@ -33,6 +34,7 @@
 #include "LocalBlockReader.h"
 #include "Logger.h"
 #include "RemoteBlockReader.h"
+#include "SlowNodeTracker.h"
 #include "server/Datanode.h"
 #include "Thread.h"
 
@@ -46,6 +48,20 @@
 
 namespace Hdfs {
 namespace Internal {
+
+static void RecordReadMetricsIfNeeded(const shared_ptr<SlowNodeTracker> & slowNodeTracker,
+                                      const std::string & path, const DatanodeInfo & datanode,
+                                      int64_t requestedSize, int64_t readSize,
+                                      const steady_clock::time_point & start) {
+    if (!slowNodeTracker) {
+        return;
+    }
+
+    const int64_t elapsed = duration_cast<milliseconds>(
+                                steady_clock::now() - start).count();
+
+    slowNodeTracker->recordRead(datanode, elapsed, path, requestedSize, readSize);
+}
 
 unordered_set<std::string> BuildLocalAddrSet() {
     unordered_set<std::string> set;
@@ -322,6 +338,10 @@ void InputStreamImpl::seekToBlock(const LocatedBlock & lb) {
 bool InputStreamImpl::choseBestNode() {
     const std::vector<DatanodeInfo> & nodes = curBlock->getLocations();
 
+    if (slowNodeTracker) {
+        return slowNodeTracker->chooseBestNode(nodes, failedNodes, path, curNode);
+    }
+
     for (size_t i = 0; i < nodes.size(); ++i) {
         if (failedNodes.binary_search(nodes[i])) {
             continue;
@@ -336,6 +356,10 @@ bool InputStreamImpl::choseBestNode() {
 
 bool InputStreamImpl::choseBestNode(shared_ptr<LocatedBlock> curBlock, DatanodeInfo & curNode) {
     const std::vector<DatanodeInfo> & nodes = curBlock->getLocations();
+
+    if (slowNodeTracker) {
+        return slowNodeTracker->chooseBestNode(nodes, failedNodes, path, curNode);
+    }
 
     for (size_t i = 0; i < nodes.size(); ++i) {
         if (failedNodes.binary_search(nodes[i])) {
@@ -563,6 +587,7 @@ void InputStreamImpl::openInternal(shared_ptr<FileSystemInter> fs, const char * 
         this->path = fs->getStandardPath(path);
         LOG(DEBUG2, "%p, open file %s for read, verfyChecksum is %s", this, this->path.c_str(), (verifyChecksum ? "true" : "false"));
         conf = shared_ptr < SessionConfig > (new SessionConfig(fs->getConf()));
+        slowNodeTracker = fs->getSlowNodeTracker();
         this->auth = RpcAuth(fs->getUserInfo(), RpcAuth::ParseMethod(conf->getRpcAuthMethod()));
         prefetchSize = conf->getDefaultBlockSize() * conf->getPrefetchSize();
         localRead = conf->isReadFromLocal();
@@ -659,8 +684,11 @@ int32_t InputStreamImpl::readOneBlock(char * buf, int32_t size, bool shouldUpdat
             todo = todo < endOfCurBlock - cursor ?
                    todo : static_cast<int32_t>(endOfCurBlock - cursor);
             assert(blockReader);
+            int32_t requestedSize = todo;
+            steady_clock::time_point start = steady_clock::now();
             todo = blockReader->read(buf, todo);
             cursor += todo;
+            RecordReadMetricsIfNeeded(slowNodeTracker, path, curNode, requestedSize, todo, start);
             /*
              * Exit the loop and function from here if success.
              */
@@ -992,6 +1020,7 @@ void InputStreamImpl::fetchBlockByteRange(shared_ptr<LocatedBlock> curBlock, int
             int ret;
             int32_t len = (int32_t)(end - start + 1);
             int32_t remain = len;
+            steady_clock::time_point readStart = steady_clock::now();
             while (remain > 0) {
                 ret = blockReader->read(buf + nread, remain);
                 if (ret <= 0) {
@@ -1004,6 +1033,7 @@ void InputStreamImpl::fetchBlockByteRange(shared_ptr<LocatedBlock> curBlock, int
             if (nread != len) {
                 THROW(HdfsIOException, "truncated return from reader.read(): excpected %d got %d", len, nread);
             }
+            RecordReadMetricsIfNeeded(slowNodeTracker, path, curNode, len, nread, readStart);
             /*
              * Exit the loop and function from here if success.
              */

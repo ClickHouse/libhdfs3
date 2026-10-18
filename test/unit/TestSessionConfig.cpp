@@ -37,3 +37,28 @@ TEST(TestSessionConfig, TestSelect) {
     SessionConfig session(conf);
     ASSERT_STREQ("hdfs://localhost:9000", session.getDefaultUri().c_str());
 }
+
+TEST(TestSessionConfig, SlowNodeDetectionIsDisabledByDefault) {
+    Config conf;
+    SessionConfig session(conf);
+
+    EXPECT_FALSE(session.isReadWriteMetricEnabled());
+    EXPECT_FALSE(session.isSlowDatanodeKickoutEnabled());
+    EXPECT_EQ(100, session.getSlowCacheSizeMax());
+}
+
+TEST(TestSessionConfig, SlowNodeDetectionFromConfig) {
+    Config conf;
+    conf.set("dfs.client.read.write.metric.enable", "true");
+    conf.set("dfs.client.slow.datanode.kickout.enable", "true");
+    conf.set("dfs.client.slow.downstream.warning.threshold.ms", 500);
+    conf.set("dfs.client.slow.downstream.warning.count", 3);
+    conf.set("dfs.client.slow.cache.size.max", 7);
+    SessionConfig session(conf);
+
+    EXPECT_TRUE(session.isReadWriteMetricEnabled());
+    EXPECT_TRUE(session.isSlowDatanodeKickoutEnabled());
+    EXPECT_EQ(500, session.getSlowDownstreamWarningThresholdMs());
+    EXPECT_EQ(3, session.getSlowDownstreamWarningCount());
+    EXPECT_EQ(7, session.getSlowCacheSizeMax());
+}

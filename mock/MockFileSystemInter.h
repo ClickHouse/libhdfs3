@@ -37,6 +37,7 @@
 #include "client/FileSystemKey.h"
 #include "client/FileSystemStats.h"
 #include "client/Permission.h"
+#include "client/SlowNodeTracker.h"
 #include "client/UserInfo.h"
 #include "Memory.h"
 #include "server/DatanodeInfo.h"
@@ -107,6 +108,7 @@ public:
   MOCK_METHOD3(getFileBlockLocations, std::vector<Hdfs::BlockLocation> (const char * path, int64_t start, int64_t len));
   MOCK_METHOD2(listAllDirectoryItems, std::vector<Hdfs::FileStatus> (const char * path, bool needLocation));
   MOCK_METHOD0(getPeerCache, Hdfs::Internal::PeerCache &());
+  MOCK_METHOD0(getSlowNodeTracker, Hdfs::Internal::shared_ptr<Hdfs::Internal::SlowNodeTracker>());
 };
 
 #endif /* _HDFS_LIBHDFS3_MOCK_MOCKSOCKET_H_ */

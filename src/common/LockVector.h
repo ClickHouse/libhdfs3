@@ -22,6 +22,7 @@
 #ifndef _HDFS_LIBHDFS3_COMMON_LOCKVECTOR_H_
 #define _HDFS_LIBHDFS3_COMMON_LOCKVECTOR_H_
 
+#include <algorithm>
 #include <mutex>
 #include <vector>
 

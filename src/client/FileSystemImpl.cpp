@@ -38,6 +38,7 @@
 #include "Logger.h"
 #include "OutputStream.h"
 #include "OutputStreamImpl.h"
+#include "SlowNodeTracker.h"
 #include "server/LocatedBlocks.h"
 #include "server/NamenodeInfo.h"
 #include "server/NamenodeProxy.h"
@@ -122,6 +123,7 @@ FileSystemImpl::FileSystemImpl(const FileSystemKey& key, const Config& c)
     clientName = ss.str();
     workingDir = std::string("/user/") + user.getEffectiveUser();
     peerCache = shared_ptr<PeerCache>(new PeerCache(sconf));
+    slowNodeTracker = shared_ptr<SlowNodeTracker>(new SlowNodeTracker(sconf));
 #ifdef MOCK
     stub = NULL;
 #endif
