@@ -43,6 +43,12 @@
 namespace Hdfs {
 namespace Internal {
 
+/*
+ * The maximum size of the data and checksums in a packet, the same limit as
+ * PacketReceiver.MAX_PACKET_SIZE in Hadoop. Datanodes send much smaller packets.
+ */
+static const int64_t MAX_PACKET_SIZE = 16 * 1024 * 1024;
+
 RemoteBlockReader::RemoteBlockReader(const ExtendedBlock& eb,
                                      DatanodeInfo datanode,
                                      PeerCache& peerCache, int64_t start,
@@ -149,9 +155,9 @@ void RemoteBlockReader::checkResponse() {
     const ChecksumProto & cs = checksumInfo.checksum();
     chunkSize = cs.bytesperchecksum();
 
-    if (chunkSize < 0) {
+    if (chunkSize <= 0) {
         THROW(HdfsIOException,
-              "RemoteBlockReader invalid chunk size: %d, expected range[0, %" PRId64 "], Block: %s, from Datanode: %s",
+              "RemoteBlockReader invalid chunk size: %d, expected range(0, %" PRId64 "], Block: %s, from Datanode: %s",
               chunkSize, binfo.getNumBytes(), binfo.toString().c_str(), datanode.formatAddress().c_str());
     }
 
@@ -234,36 +240,61 @@ void RemoteBlockReader::readNextPacket() {
               binfo.toString().c_str(), datanode.formatAddress().c_str());
     }
 
-    assert(dataSize > 0 || lastHeader->getPacketLen() == sizeof(int32_t));
+    if (dataSize < 0 || (dataSize == 0 && lastHeader->getPacketLen() != static_cast<int>(sizeof(int32_t)))) {
+        THROW(HdfsIOException, "RemoteBlockReader: Invalid Packet, packetLen is %d, dataSize is %d, Block: %s, from Datanode: %s",
+              lastHeader->getPacketLen(), dataSize, binfo.toString().c_str(), datanode.formatAddress().c_str());
+    }
 
     if (dataSize > 0) {
-        int chunks = (dataSize + chunkSize - 1) / chunkSize;
-        int checksumLen = chunks * checksumSize;
-        size = checksumLen + dataSize;
-        assert(size == lastHeader->getPacketLen() - static_cast<int>(sizeof(int32_t)));
-        buffer.resize(size);
-        in->readFully(buffer.data(), size, readTimeout);
+        /*
+         * chunkSize is validated to be positive in checkResponse.
+         * Use 64-bit arithmetic: the values come from the Datanode and must not overflow.
+         */
+        int64_t chunks = (static_cast<int64_t>(dataSize) + chunkSize - 1) / chunkSize;
+        int64_t checksumLen = chunks * checksumSize;
+        int64_t packetSize = checksumLen + dataSize;
+
+        if (packetSize > MAX_PACKET_SIZE
+                || static_cast<int64_t>(lastHeader->getPacketLen()) != static_cast<int64_t>(sizeof(int32_t)) + packetSize) {
+            THROW(HdfsIOException, "RemoteBlockReader: Invalid Packet, packetLen is %d, dataSize is %d, checksum size is %" PRId64
+                  ", Block: %s, from Datanode: %s",
+                  lastHeader->getPacketLen(), dataSize, checksumLen, binfo.toString().c_str(), datanode.formatAddress().c_str());
+        }
+
+        /*
+         * the first packet we get may start at the position before we required,
+         * but a packet must never start after the position we required
+         * and must contain at least one byte at or after it.
+         */
+        int64_t offsetInBlock = lastHeader->getOffsetInBlock();
+
+        if (offsetInBlock < 0 || offsetInBlock > cursor || cursor - offsetInBlock >= dataSize) {
+            THROW(HdfsIOException, "RemoteBlockReader: Invalid Packet, offset in block is %" PRId64 ", dataSize is %d, "
+                  "expected offset range (%" PRId64 ", %" PRId64 "], Block: %s, from Datanode: %s",
+                  offsetInBlock, dataSize, cursor - dataSize, cursor, binfo.toString().c_str(), datanode.formatAddress().c_str());
+        }
+
+        /*
+         * Reset the state before reading, so that it stays consistent if reading fails.
+         */
+        position = 0;
+        size = 0;
+        buffer.resize(packetSize);
+        in->readFully(buffer.data(), packetSize, readTimeout);
         lastSeqNo = lastHeader->getSeqno();
 
-        if (lastHeader->getPacketLen() != static_cast<int>(sizeof(int32_t)) + dataSize + checksumLen) {
-            THROW(HdfsIOException, "Invalid Packet, packetLen is %d, dataSize is %d, checksum size is %d",
-                  lastHeader->getPacketLen(), dataSize, checksumLen);
+        if (verify) {
+            verifyChecksum(static_cast<int>(chunks));
         }
 
-        if (verify) {
-            verifyChecksum(chunks);
-        }
+        size = static_cast<int>(packetSize);
 
         /*
          * skip checksum
          */
-        position = checksumLen;
-        /*
-         * the first packet we get may start at the position before we required
-         */
-        pendingAhead = cursor - lastHeader->getOffsetInBlock();
-        pendingAhead = pendingAhead > 0 ? pendingAhead : 0;
-        position += pendingAhead;
+        position = static_cast<int>(checksumLen);
+        pendingAhead = cursor - offsetInBlock;
+        position += static_cast<int>(pendingAhead);
     }
 
     /*
@@ -342,6 +373,11 @@ int32_t RemoteBlockReader::read(char * buf, int32_t len) {
             readNextPacket();
         }
 
+        if (position < 0 || position > size) {
+            THROW(HdfsIOException, "RemoteBlockReader: invalid position %d in packet of size %d, Block: %s, from Datanode: %s",
+                  position, size, binfo.toString().c_str(), datanode.formatAddress().c_str());
+        }
+
         int32_t todo = len < size - position ? len : size - position;
         memcpy(buf, buffer.data() + position, todo);
         position += todo;
@@ -369,6 +405,11 @@ void RemoteBlockReader::skip(int64_t len) {
 
             if (position >= size) {
                 readNextPacket();
+            }
+
+            if (position < 0 || position > size) {
+                THROW(HdfsIOException, "RemoteBlockReader: invalid position %d in packet of size %d, Block: %s, from Datanode: %s",
+                      position, size, binfo.toString().c_str(), datanode.formatAddress().c_str());
             }
 
             int batch = size - position;

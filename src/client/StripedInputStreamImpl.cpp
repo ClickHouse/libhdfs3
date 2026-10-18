@@ -260,6 +260,9 @@ void StripedInputStreamImpl::fetchBlockByteRange(shared_ptr<LocatedBlock> curBlo
     StripedBlockUtil::parseStripedBlockGroup(*blockGroup, cellSize, dataBlkNum, parityBlkNum, blks);
     for (int i = 0; i < static_cast<int>(blockGroup->getIndices().size()); ++i) {
         int32_t idx = blockGroup->getIndices()[i];
+        if (idx < 0 || idx >= static_cast<int32_t>(blks.size()) || blks[idx].getLocations().empty()) {
+            continue;
+        }
         LOG(DEBUG1, "block[%d] id=%ld, size=%ld, locs=%s, poolid=%s\n", idx, blks[idx].getBlockId(),
             blks[idx].getNumBytes(), blks[idx].getLocations()[0].getIpAddr().c_str(), blks[idx].getPoolId().c_str());
     }
@@ -314,6 +317,9 @@ void StripedInputStreamImpl::readOneStripe() {
     StripedBlockUtil::parseStripedBlockGroup(*curBlock, cellSize, dataBlkNum, parityBlkNum, blks);
     for (int i = 0; i < static_cast<int>(curBlock->getIndices().size()); ++i) {
         int32_t idx = curBlock->getIndices()[i];
+        if (idx < 0 || idx >= static_cast<int32_t>(blks.size()) || blks[idx].getLocations().empty()) {
+            continue;
+        }
         LOG(DEBUG1, "block[%d] id=%ld, size=%ld, locs=%s, poolid=%s\n", idx, blks[idx].getBlockId(), 
             blks[idx].getNumBytes(), blks[idx].getLocations()[0].getIpAddr().c_str(), blks[idx].getPoolId().c_str());
     }
