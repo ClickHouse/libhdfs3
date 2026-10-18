@@ -223,6 +223,9 @@ shared_ptr<PacketHeader> RemoteBlockReader::readPacketHeader() {
         retval = shared_ptr<PacketHeader>(new PacketHeader);
         retval->readFields(buf.data(), packetHeaderLen);
         return retval;
+    } catch (const HdfsTimeoutException & e) {
+        NESTED_THROW(HdfsIOException, "RemoteBlockReader: failed to read block header for Block: %s from Datanode: %s.",
+                     binfo.toString().c_str(), datanode.formatAddress().c_str());
     } catch (const HdfsIOException & e) {
         NESTED_THROW(HdfsIOException, "RemoteBlockReader: failed to read block header for Block: %s from Datanode: %s.",
                      binfo.toString().c_str(), datanode.formatAddress().c_str());

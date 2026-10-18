@@ -447,6 +447,15 @@ void InputStreamImpl::setupBlockReader(bool temporaryDisableLocalRead) {
             }
 
             break;
+        } catch (const HdfsTimeoutException & e) {
+            lastException = current_exception();
+            std::string buffer;
+            LOG(LOG_ERROR,
+                "cannot setup block reader for Block: %s file %s on Datanode: %s.\n%s\nretry another node",
+                curBlock->toString().c_str(), path.c_str(),
+                curNode.formatAddress().c_str(), GetExceptionDetail(e, buffer));
+            failedNodes.push_back(curNode);
+            failedNodes.sort();
         } catch (const HdfsIOException & e) {
             lastException = current_exception();
             std::string buffer;
@@ -539,6 +548,15 @@ void InputStreamImpl::setupBlockReader(bool temporaryDisableLocalRead, shared_pt
             }
 
             break;
+        } catch (const HdfsTimeoutException & e) {
+            lastException = current_exception();
+            std::string buffer;
+            LOG(LOG_ERROR,
+                "cannot setup block reader for Block: %s file %s on Datanode: %s.\n%s\nretry another node",
+                curBlock->toString().c_str(), path.c_str(),
+                curNode.formatAddress().c_str(), GetExceptionDetail(e, buffer));
+            failedNodes.push_back(curNode);
+            failedNodes.sort();
         } catch (const HdfsIOException & e) {
             lastException = current_exception();
             std::string buffer;
