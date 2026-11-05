@@ -29,6 +29,7 @@
 
 #include "Logger.h"
 
+#include <atomic>
 #include <cassert>
 #include <cstdarg>
 #include <cstdio>
@@ -55,9 +56,11 @@ const char * SeverityName[] = { "FATAL", "ERROR", "WARNING", "INFO", "DEBUG1",
                               };
 
 static void InitProcessId() {
+    /// A sequential thread number instead of `pthread_self`, which is a stack address.
+    static std::atomic<uint64_t> thread_count{0};
     std::stringstream ss;
     ss.imbue(std::locale::classic());
-    ss << "p" << getpid() << ", th" << pthread_self();
+    ss << "p" << getpid() << ", th" << ++thread_count;
     snprintf(ProcessId, sizeof(ProcessId), "%s", ss.str().c_str());
 }
 

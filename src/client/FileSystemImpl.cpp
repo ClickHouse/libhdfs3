@@ -118,7 +118,7 @@ FileSystemImpl::FileSystemImpl(const FileSystemKey& key, const Config& c)
     double rand = distr(rng);
 
     ss << "libhdfs3_client_rand_" + std::to_string(rand) + "_count_" << ++count << "_pid_"
-       << getpid() << "_tid_" << pthread_self();
+       << getpid();
 
     clientName = ss.str();
     workingDir = std::string("/user/") + user.getEffectiveUser();
