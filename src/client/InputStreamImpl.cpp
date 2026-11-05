@@ -603,7 +603,7 @@ void InputStreamImpl::openInternal(shared_ptr<FileSystemInter> fs, const char * 
         filesystem = fs;
         verify = verifyChecksum;
         this->path = fs->getStandardPath(path);
-        LOG(DEBUG2, "%p, open file %s for read, verfyChecksum is %s", this, this->path.c_str(), (verifyChecksum ? "true" : "false"));
+        LOG(DEBUG2, "open file %s for read, verfyChecksum is %s", this->path.c_str(), (verifyChecksum ? "true" : "false"));
         conf = shared_ptr < SessionConfig > (new SessionConfig(fs->getConf()));
         slowNodeTracker = fs->getSlowNodeTracker();
         this->auth = RpcAuth(fs->getUserInfo(), RpcAuth::ParseMethod(conf->getRpcAuthMethod()));
@@ -629,7 +629,7 @@ int32_t InputStreamImpl::read(char * buf, int32_t size) {
     try {
         int64_t prvious = cursor;
         int32_t done = readInternal(buf, size);
-        LOG(DEBUG3, "%p read file %s size is %d, offset %" PRId64 " done %d, next pos %" PRId64, this, path.c_str(), size,
+        LOG(DEBUG3, "read file %s size is %d, offset %" PRId64 " done %d, next pos %" PRId64, path.c_str(), size,
             prvious, done, cursor);
         return done;
     } catch (const HdfsEndOfStream & e) {
@@ -645,7 +645,7 @@ int32_t InputStreamImpl::pread(char * buf, int32_t size, int64_t position) {
 
     try {
         int32_t done = preadInternal(buf, size, position);
-        LOG(DEBUG3, "%p pread file %s size is %d, offset %" PRId64 " done %d" PRId64, this, path.c_str(), size,
+        LOG(DEBUG3, "pread file %s size is %d, offset %" PRId64 " done %d" PRId64, path.c_str(), size,
             position, done);
         return done;
     } catch (const HdfsEndOfStream & e) {
@@ -1167,7 +1167,7 @@ int64_t InputStreamImpl::available() {
  * @param size the given position.
  */
 void InputStreamImpl::seek(int64_t pos) {
-    LOG(DEBUG2, "%p seek file %s to %" PRId64 ", offset %" PRId64, this, path.c_str(), pos, cursor);
+    LOG(DEBUG2, "seek file %s to %" PRId64 ", offset %" PRId64, path.c_str(), pos, cursor);
     checkStatus();
 
     try {
@@ -1234,7 +1234,7 @@ int64_t InputStreamImpl::tell() {
  * Close the stream.
  */
 void InputStreamImpl::close() {
-    LOG(DEBUG2, "%p close file %s for read", this, path.c_str());
+    LOG(DEBUG2, "close file %s for read", path.c_str());
     closed = true;
     localRead = true;
     readFromUnderConstructedBlock = false;
